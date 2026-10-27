@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'hive_service.dart';
 import '../core/constants.dart';
+import '../models/persona.dart';
 import 'device_info_service.dart';
 import 'app_log_service.dart';
+import 'prompt_composer.dart';
 import 'stop_sequence_filter.dart';
 
 // Conditionally import llama_flutter_android — only on Android
@@ -16,6 +18,7 @@ import 'inference_android.dart' if (dart.library.html) 'inference_stub.dart'
 /// - Web: cloud-only mode (local inference coming soon)
 class InferenceService extends GetxService {
   final HiveService _hive = Get.find<HiveService>();
+  final PromptComposer _composer = const PromptComposer();
 
   // ── Observable State ──
   final isModelLoaded = false.obs;
@@ -230,6 +233,7 @@ class InferenceService extends GetxService {
   Future<String> generate({
     required String prompt,
     String? systemPrompt,
+    Persona? persona,
     List<Map<String, String>>? conversationHistory,
     String source = 'chat',
     String? imagePath,
@@ -277,32 +281,46 @@ class InferenceService extends GetxService {
       onToken?.call(text);
     }
 
-    final stopFilter = StopSequenceFilter(stopSequences);
+    final composed = _composer.composeForLocal(
+      persona: persona,
+      baseSystemPrompt: systemPrompt,
+      history: conversationHistory ?? const [],
+      userMessage: prompt,
+    );
+    final mergedStops = <String>[
+      ...stopSequences,
+      if (persona != null)
+        ...persona.stopSequences.where((s) => !stopSequences.contains(s)),
+    ];
+    final stopFilter = StopSequenceFilter(mergedStops);
     var stopSequenceHit = false;
 
     try {
-      final temperature = _hive.getSetting<double>(
+      final settingTemperature = _hive.getSetting<double>(
             AppConstants.keyTemperature,
             defaultValue: AppConstants.defaultTemperature,
           ) ??
           AppConstants.defaultTemperature;
+      final temperature = persona?.temperature ?? settingTemperature;
 
       final settingMaxTokens = _hive.getSetting<int>(
             AppConstants.keyMaxTokens,
             defaultValue: AppConstants.defaultMaxTokens,
           ) ??
           AppConstants.defaultMaxTokens;
-      final effectiveMaxTokens = (maxTokens != null && maxTokens > 0)
-          ? (maxTokens < settingMaxTokens ? maxTokens : settingMaxTokens)
+      final requestedMax = persona?.maxTokens ?? maxTokens;
+      final effectiveMaxTokens = (requestedMax != null && requestedMax > 0)
+          ? (requestedMax < settingMaxTokens ? requestedMax : settingMaxTokens)
           : settingMaxTokens;
 
       final result = await _engine!.generate(
         prompt: prompt,
-        conversationHistory: conversationHistory,
-        systemPrompt: systemPrompt ?? AppConstants.systemPrompt,
+        conversationHistory: composed.history,
+        systemPrompt: composed.systemPrompt,
         modelName: loadedModelName.value,
         maxTokens: effectiveMaxTokens,
         temperature: temperature,
+        topP: persona?.topP,
         imagePath: imagePath,
         audioPath: audioPath,
         source: source,

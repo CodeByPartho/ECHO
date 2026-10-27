@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
+import '../models/persona.dart';
 import 'hive_service.dart';
 import 'app_log_service.dart';
+import 'prompt_composer.dart';
 
 /// Cloud API service supporting native and OpenAI-compatible providers.
 class CloudService extends GetxService {
   final HiveService _hive = Get.find<HiveService>();
+  final PromptComposer _composer = const PromptComposer();
 
   String get _provider =>
       _hive.getSetting(AppConstants.keyCloudProvider, defaultValue: 'openrouter') ??
@@ -98,9 +101,11 @@ class CloudService extends GetxService {
 
   /// Send a message to the cloud API. Returns the response text.
   /// [messages] is a list of {role, content} maps forming the conversation.
-  /// [imageBase64] is optional for multimodal requests.
+  /// When [persona] is set, its system prompt replaces the existing system
+  /// message and its few-shot examples are inserted before the live history.
   Future<String> sendMessage({
     required List<Map<String, String>> messages,
+    Persona? persona,
     String? imageBase64,
     double? temperature,
     int? maxTokens,
@@ -110,15 +115,26 @@ class CloudService extends GetxService {
       return 'ERROR: No API key configured for $_provider. Go to Settings.';
     }
 
+    final composed = _composer.applyToCloud(
+      persona: persona,
+      messages: messages,
+    );
+    final effectiveTemperature = persona?.temperature ?? temperature;
+    final effectiveMaxTokens = persona?.maxTokens ?? maxTokens;
+    final topP = persona?.topP;
+    final stopSequences = persona?.stopSequences ?? const <String>[];
+
     try {
       if (onToken != null && _supportsStreaming) {
         return await _streamOpenAICompatible(
           endpoint: _openAICompatibleEndpoint,
           providerLabel: _providerLabel,
-          messages: messages,
+          messages: composed,
           imageBase64: imageBase64,
-          temperature: temperature,
-          maxTokens: maxTokens,
+          temperature: effectiveTemperature,
+          maxTokens: effectiveMaxTokens,
+          topP: topP,
+          stopSequences: stopSequences,
           extraHeaders: _openAICompatibleExtraHeaders,
           onToken: onToken,
         );
@@ -126,30 +142,39 @@ class CloudService extends GetxService {
 
       switch (_provider) {
         case 'anthropic':
-          return await _sendAnthropic(
-              messages, imageBase64, temperature, maxTokens);
+          return await _sendAnthropic(composed, imageBase64,
+              effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         case 'google':
           return await _sendGoogle(
-              messages, imageBase64, temperature, maxTokens);
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         case 'kimi':
-          return await _sendKimi(messages, imageBase64, temperature, maxTokens);
+          return await _sendKimi(
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         case 'stability':
-          return await _sendStability(messages);
+          return await _sendStability(composed);
         case 'nvidia':
           return await _sendNvidia(
-              messages, imageBase64, temperature, maxTokens);
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         case 'openrouter':
           return await _sendOpenRouter(
-              messages, imageBase64, temperature, maxTokens);
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         case 'deepseek':
           return await _sendDeepSeek(
-              messages, imageBase64, temperature, maxTokens);
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         case 'custom':
           return await _sendCustomOpenAICompatible(
-              messages, imageBase64, temperature, maxTokens);
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
         default:
           return await _sendOpenAI(
-              messages, imageBase64, temperature, maxTokens);
+              composed, imageBase64, effectiveTemperature, effectiveMaxTokens,
+              topP: topP, stopSequences: stopSequences);
       }
     } on TimeoutException {
       Get.find<AppLogService>().warning('Cloud API request timed out');
@@ -224,8 +249,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     final apiMessages = <Map<String, dynamic>>[];
 
     for (final msg in messages) {
@@ -258,6 +285,8 @@ class CloudService extends GetxService {
         'messages': apiMessages,
         'temperature': temperature ?? AppConstants.defaultTemperature,
         'max_tokens': maxTokens ?? AppConstants.defaultMaxTokens,
+        if (topP != null) 'top_p': topP,
+        if (stopSequences.isNotEmpty) 'stop': stopSequences,
       }),
     );
 
@@ -275,8 +304,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     // Extract system message
     String? systemMsg;
     final apiMessages = <Map<String, dynamic>>[];
@@ -317,6 +348,8 @@ class CloudService extends GetxService {
       'messages': apiMessages,
       'max_tokens': maxTokens ?? AppConstants.defaultMaxTokens,
       'temperature': temperature ?? AppConstants.defaultTemperature,
+      if (topP != null) 'top_p': topP,
+      if (stopSequences.isNotEmpty) 'stop_sequences': stopSequences,
     };
     if (systemMsg != null) body['system'] = systemMsg;
 
@@ -345,12 +378,20 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     final parts = <Map<String, dynamic>>[];
+    String? systemInstruction;
 
-    // Combine all messages into parts
+    // Gemini takes the system prompt as a dedicated field, not a message.
     for (final msg in messages) {
+      if (msg['role'] == 'system') {
+        final text = (msg['content'] ?? '').trim();
+        if (text.isNotEmpty) systemInstruction = text;
+        continue;
+      }
       parts.add({'text': '${msg['role']}: ${msg['content']}'});
     }
 
@@ -375,12 +416,20 @@ class CloudService extends GetxService {
         'x-goog-api-key': _apiKey,
       },
       body: jsonEncode({
+        if (systemInstruction != null)
+          'systemInstruction': {
+            'parts': [
+              {'text': systemInstruction}
+            ]
+          },
         'contents': [
           {'parts': parts}
         ],
         'generationConfig': {
           'temperature': temperature ?? AppConstants.defaultTemperature,
           'maxOutputTokens': maxTokens ?? AppConstants.defaultMaxTokens,
+          if (topP != null) 'topP': topP,
+          if (stopSequences.isNotEmpty) 'stopSequences': stopSequences,
         },
       }),
     );
@@ -404,8 +453,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     final apiMessages = <Map<String, dynamic>>[];
 
     for (final msg in messages) {
@@ -423,6 +474,8 @@ class CloudService extends GetxService {
         'messages': apiMessages,
         'temperature': temperature ?? AppConstants.defaultTemperature,
         'max_tokens': maxTokens ?? AppConstants.defaultMaxTokens,
+        if (topP != null) 'top_p': topP,
+        if (stopSequences.isNotEmpty) 'stop': stopSequences,
       }),
     );
 
@@ -438,8 +491,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     final apiMessages = <Map<String, dynamic>>[];
 
     for (final msg in messages) {
@@ -472,6 +527,8 @@ class CloudService extends GetxService {
         'messages': apiMessages,
         'temperature': temperature ?? AppConstants.defaultTemperature,
         'max_tokens': maxTokens ?? AppConstants.defaultMaxTokens,
+        if (topP != null) 'top_p': topP,
+        if (stopSequences.isNotEmpty) 'stop': stopSequences,
       }),
     );
 
@@ -487,8 +544,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     return _sendOpenAICompatible(
       endpoint: '${AppConstants.openRouterEndpoint}/chat/completions',
       providerLabel: 'OpenRouter',
@@ -496,6 +555,8 @@ class CloudService extends GetxService {
       imageBase64: imageBase64,
       temperature: temperature,
       maxTokens: maxTokens,
+      topP: topP,
+      stopSequences: stopSequences,
       extraHeaders: const {
         'HTTP-Referer': 'https://ai-chat.local',
         'X-Title': 'AI Chat',
@@ -507,8 +568,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     return _sendOpenAICompatible(
       endpoint: '${AppConstants.deepSeekEndpoint}/chat/completions',
       providerLabel: 'DeepSeek',
@@ -516,6 +579,8 @@ class CloudService extends GetxService {
       imageBase64: imageBase64,
       temperature: temperature,
       maxTokens: maxTokens,
+      topP: topP,
+      stopSequences: stopSequences,
     );
   }
 
@@ -523,8 +588,10 @@ class CloudService extends GetxService {
     List<Map<String, String>> messages,
     String? imageBase64,
     double? temperature,
-    int? maxTokens,
-  ) async {
+    int? maxTokens, {
+    double? topP,
+    List<String> stopSequences = const [],
+  }) async {
     final baseUrl = (_hive.getSetting(AppConstants.keyCustomCloudBaseUrl) ?? '')
         .toString()
         .replaceAll(RegExp(r'/+$'), '');
@@ -536,6 +603,8 @@ class CloudService extends GetxService {
       imageBase64: imageBase64,
       temperature: temperature,
       maxTokens: maxTokens,
+      topP: topP,
+      stopSequences: stopSequences,
     );
   }
 
@@ -546,6 +615,8 @@ class CloudService extends GetxService {
     required String? imageBase64,
     required double? temperature,
     required int? maxTokens,
+    double? topP,
+    List<String> stopSequences = const [],
     Map<String, String> extraHeaders = const {},
   }) async {
     final apiMessages = <Map<String, dynamic>>[];
@@ -564,6 +635,8 @@ class CloudService extends GetxService {
         'messages': apiMessages,
         'temperature': temperature ?? AppConstants.defaultTemperature,
         'max_tokens': maxTokens ?? AppConstants.defaultMaxTokens,
+        if (topP != null) 'top_p': topP,
+        if (stopSequences.isNotEmpty) 'stop': stopSequences,
       }),
     );
 
@@ -582,6 +655,8 @@ class CloudService extends GetxService {
     required String? imageBase64,
     required double? temperature,
     required int? maxTokens,
+    double? topP,
+    List<String> stopSequences = const [],
     required void Function(String token) onToken,
     Map<String, String> extraHeaders = const {},
   }) async {
@@ -597,6 +672,8 @@ class CloudService extends GetxService {
       'messages': _buildOpenAICompatibleMessages(messages, imageBase64),
       'temperature': temperature ?? AppConstants.defaultTemperature,
       'max_tokens': maxTokens ?? AppConstants.defaultMaxTokens,
+      if (topP != null) 'top_p': topP,
+      if (stopSequences.isNotEmpty) 'stop': stopSequences,
       'stream': true,
     });
 

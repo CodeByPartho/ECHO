@@ -7,17 +7,20 @@ class HiveService extends GetxService {
   late Box _messagesBox;
   late Box _tasksBox;
   late Box _settingsBox;
+  late Box _personasBox;
 
   Box get sessionsBox => _sessionsBox;
   Box get messagesBox => _messagesBox;
   Box get tasksBox => _tasksBox;
   Box get settingsBox => _settingsBox;
+  Box get personasBox => _personasBox;
 
   Future<HiveService> init() async {
     _sessionsBox = await Hive.openBox(AppConstants.chatSessionsBox);
     _messagesBox = await Hive.openBox(AppConstants.chatMessagesBox);
     _tasksBox = await Hive.openBox(AppConstants.tasksBox);
     _settingsBox = await Hive.openBox(AppConstants.settingsBox);
+    _personasBox = await Hive.openBox(AppConstants.personasBox);
     // Preserve current local-server settings and purge obsolete provider data.
     // Any new server_* setting must be added here or it is wiped on launch.
     const currentServerKeys = {

@@ -33,6 +33,7 @@ class InferenceEngine {
     String? modelRuntime,
     required int contextSize,
     required String deviceTier,
+    bool isTensorSoC = false,
     String liteRtPerformanceMode = 'cpu_safe',
     bool forceLiteRtCpu = true,
     bool clearLiteRtCache = false,
@@ -54,6 +55,7 @@ class InferenceEngine {
     required String modelName,
     required int maxTokens,
     required double temperature,
+    double? topP,
     String? imagePath,
     String? audioPath,
     String source = 'chat',
@@ -62,6 +64,7 @@ class InferenceEngine {
     return 'ERROR: Local inference is not available on this platform. Use Cloud mode.';
   }
 
+  Future<void> resetConversation() async {}
   Future<void> stop() async {}
   Future<dynamic> getContextInfo() async => null;
   Future<void> dispose() async {}

@@ -4,6 +4,7 @@ import 'dart:io' show Platform, Directory, File;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_litert_lm/flutter_litert_lm.dart';
 import 'package:llama_flutter_android/llama_flutter_android.dart';
+import 'prompt_composer.dart';
 
 /// Whether the current platform supports local inference.
 bool get supportsLocalInference => Platform.isAndroid || Platform.isIOS;
@@ -51,10 +52,12 @@ class InferenceEngine {
   bool _hasLoadedModel = false;
   String? _liteConversationSystemPrompt;
   double? _liteConversationTemperature;
+  double? _liteConversationTopP;
   bool _liteConversationHasMessages = false;
   // Which caller (chat/server/task) the native LiteRT conversation belongs to.
   // A different caller must never continue another's conversation.
   String? _liteConversationOwner;
+  final PromptComposer _composer = const PromptComposer();
 
   Future<LoadResult> loadModel({
     required String modelPath,
@@ -341,6 +344,7 @@ class InferenceEngine {
     required String modelName,
     required int maxTokens,
     required double temperature,
+    double? topP,
     String? imagePath,
     String? audioPath,
     String source = 'chat',
@@ -353,6 +357,7 @@ class InferenceEngine {
         systemPrompt: systemPrompt,
         maxTokens: maxTokens,
         temperature: temperature,
+        topP: topP,
         imagePath: imagePath,
         audioPath: audioPath,
         source: source,
@@ -399,6 +404,7 @@ class InferenceEngine {
 
     // ── Use generateChat() for native template handling ──
     Stream<String>? stream;
+    final effectiveTopP = topP ?? 0.9;
     try {
       final messages = _buildChatMessages(
           prompt, conversationHistory, systemPrompt,
@@ -408,7 +414,7 @@ class InferenceEngine {
         template: null,
         maxTokens: maxTokens,
         temperature: temperature,
-        topP: 0.9,
+        topP: effectiveTopP,
         topK: 40,
         minP: 0.05,
         repeatPenalty: 1.1,
@@ -427,7 +433,7 @@ class InferenceEngine {
         prompt: fullPrompt,
         maxTokens: maxTokens,
         temperature: temperature,
-        topP: 0.9,
+        topP: effectiveTopP,
         topK: 40,
         minP: 0.05,
         repeatPenalty: 1.1,
@@ -492,6 +498,7 @@ class InferenceEngine {
     required String systemPrompt,
     required int maxTokens,
     required double temperature,
+    double? topP,
     String? imagePath,
     String? audioPath,
     required String source,
@@ -505,6 +512,7 @@ class InferenceEngine {
       conversationHistory: conversationHistory,
       systemPrompt: systemPrompt,
       temperature: temperature,
+      topP: topP,
       source: source,
     );
 
@@ -668,10 +676,12 @@ class InferenceEngine {
     required List<Map<String, String>>? conversationHistory,
     required String systemPrompt,
     required double temperature,
+    double? topP,
     required String source,
   }) async {
     final hasIncomingHistory = conversationHistory != null &&
         conversationHistory.any((msg) => (msg['content'] ?? '').isNotEmpty);
+    final effectiveTopP = topP ?? 0.95;
     // Server requests are stateless: each one carries its own history, so it
     // always gets a fresh conversation and never sees chat context.
     final shouldReset = _liteConversation == null ||
@@ -679,6 +689,7 @@ class InferenceEngine {
         _liteConversationOwner != source ||
         _liteConversationSystemPrompt != systemPrompt ||
         _liteConversationTemperature != temperature ||
+        _liteConversationTopP != effectiveTopP ||
         (_liteConversationHasMessages && !hasIncomingHistory);
 
     if (!shouldReset) return;
@@ -695,12 +706,13 @@ class InferenceEngine {
         samplerConfig: LiteLmSamplerConfig(
           temperature: temperature,
           topK: 64,
-          topP: 0.95,
+          topP: effectiveTopP,
         ),
       ),
     );
     _liteConversationSystemPrompt = systemPrompt;
     _liteConversationTemperature = temperature;
+    _liteConversationTopP = effectiveTopP;
     _liteConversationHasMessages = hasIncomingHistory;
     _liteConversationOwner = source;
   }
@@ -734,6 +746,7 @@ class InferenceEngine {
       _liteConversation = null;
       _liteConversationSystemPrompt = null;
       _liteConversationTemperature = null;
+      _liteConversationTopP = null;
       _liteConversationHasMessages = false;
       _liteConversationOwner = null;
     }
@@ -774,6 +787,7 @@ class InferenceEngine {
     _hasLoadedModel = false;
     _liteConversationSystemPrompt = null;
     _liteConversationTemperature = null;
+    _liteConversationTopP = null;
     _liteConversationHasMessages = false;
   }
 
@@ -913,73 +927,12 @@ class InferenceEngine {
     String systemPrompt,
     String modelName,
   ) {
-    // Auto-detect template from model name
-    final name = modelName.toLowerCase();
-    if (name.contains('gemma')) {
-      return _buildGemma(userMessage, history, systemPrompt);
-    }
-    if (name.contains('llama-3') || name.contains('llama3')) {
-      return _buildLlama3(userMessage, history, systemPrompt);
-    }
-    return _buildChatML(userMessage, history, systemPrompt);
-  }
-
-  String _buildChatML(
-      String msg, List<Map<String, String>>? history, String sys) {
-    final buf = StringBuffer();
-    buf.write('<|im_start|>system\n$sys<|im_end|>\n');
-    if (history != null) {
-      final recent =
-          history.length > 8 ? history.sublist(history.length - 8) : history;
-      for (final m in recent) {
-        final content = m['content'] ?? '';
-        final trunc =
-            content.length > 300 ? '${content.substring(0, 300)}...' : content;
-        buf.write('<|im_start|>${m['role'] ?? 'user'}\n$trunc<|im_end|>\n');
-      }
-    }
-    buf.write('<|im_start|>user\n$msg<|im_end|>\n<|im_start|>assistant\n');
-    return buf.toString();
-  }
-
-  String _buildGemma(
-      String msg, List<Map<String, String>>? history, String sys) {
-    final buf = StringBuffer();
-    buf.write(
-        '<start_of_turn>user\n$sys<end_of_turn>\n<start_of_turn>model\nUnderstood.<end_of_turn>\n');
-    if (history != null) {
-      final recent =
-          history.length > 4 ? history.sublist(history.length - 4) : history;
-      for (final m in recent) {
-        final role = m['role'] == 'assistant' ? 'model' : 'user';
-        final content = m['content'] ?? '';
-        final trunc =
-            content.length > 300 ? '${content.substring(0, 300)}...' : content;
-        buf.write('<start_of_turn>$role\n$trunc<end_of_turn>\n');
-      }
-    }
-    buf.write('<start_of_turn>user\n$msg<end_of_turn>\n<start_of_turn>model\n');
-    return buf.toString();
-  }
-
-  String _buildLlama3(
-      String msg, List<Map<String, String>>? history, String sys) {
-    final buf = StringBuffer();
-    buf.write(
-        '<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$sys<|eot_id|>');
-    if (history != null) {
-      final recent =
-          history.length > 4 ? history.sublist(history.length - 4) : history;
-      for (final m in recent) {
-        final content = m['content'] ?? '';
-        final trunc =
-            content.length > 300 ? '${content.substring(0, 300)}...' : content;
-        buf.write(
-            '<|start_header_id|>${m['role'] ?? 'user'}<|end_header_id|>\n\n$trunc<|eot_id|>');
-      }
-    }
-    buf.write(
-        '<|start_header_id|>user<|end_header_id|>\n\n$msg<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n');
-    return buf.toString();
+    final template = _composer.detectTemplate(modelName);
+    return _composer.renderLocal(
+      template: template,
+      systemPrompt: systemPrompt,
+      history: history ?? const [],
+      userMessage: userMessage,
+    );
   }
 }

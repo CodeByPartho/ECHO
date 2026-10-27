@@ -149,7 +149,7 @@ Future<String> downloadModel({
       // already have every byte). Start over rather than guess.
       await partial.delete();
       _cancelTokens.remove(filename);
-      return downloadModel(
+      return await downloadModel(
         url: url,
         savePath: savePath,
         authToken: authToken,
