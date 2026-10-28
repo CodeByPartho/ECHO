@@ -1,11 +1,14 @@
 class AppConstants {
   AppConstants._();
 
+  static const String appName = 'ECHO';
+
   // Hive Box Names
   static const String chatSessionsBox = 'chat_sessions';
   static const String chatMessagesBox = 'chat_messages';
   static const String tasksBox = 'tasks';
   static const String settingsBox = 'settings';
+  static const String personasBox = 'personas';
 
   // Settings Keys
   static const String keyInferenceMode = 'inference_mode'; // 'local' or 'cloud'
@@ -73,6 +76,7 @@ class AppConstants {
   static const String keyFontScale = 'font_scale';
   static const String keyBatchModeWarningAccepted =
       'batch_mode_warning_accepted';
+  static const String keyActivePersonaId = 'active_persona_id';
 
   // Default Model Config
   static const double defaultTemperature = 0.7;

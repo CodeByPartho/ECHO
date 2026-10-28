@@ -8,6 +8,8 @@ import '../controllers/settings_controller.dart';
 import '../ffi/sd_ffi_bindings.dart';
 import '../services/inference_service.dart';
 import '../services/local_image_service.dart';
+import '../services/persona_service.dart';
+import '../views/persona_view.dart';
 import '../core/haptics.dart';
 
 /// Landing screen shown in the Chat tab before the first message is sent.
@@ -37,6 +39,8 @@ class HomeEmptyState extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _ModelCard(t: t),
+                const SizedBox(height: 8),
+                _PersonaBar(t: t),
                 const Spacer(),
                 const SizedBox(height: 32),
                 _Greeting(t: t, compact: typing),
@@ -52,6 +56,67 @@ class HomeEmptyState extends StatelessWidget {
                     return needsModel ? _GettingStarted(t: t) : _Starters(t: t);
                   }),
               ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _PersonaBar extends StatelessWidget {
+  final _HomeTokens t;
+  const _PersonaBar({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<PersonaService>()) return const SizedBox.shrink();
+    final ps = Get.find<PersonaService>();
+    final chat = Get.find<ChatController>();
+    return Obx(() {
+      final active = chat.currentPersona ?? ps.activePersona;
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: Colors.transparent,
+          shape: StadiumBorder(side: BorderSide(color: t.outline)),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: t.cardPressed,
+            onTap: () {
+              Haptics.selectionClick();
+              showPersonaPickerSheet(
+                context,
+                selectedPersonaId: active?.id,
+                onSelected: (id) => chat.setSessionPersona(id),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  Icons.theater_comedy_outlined,
+                  size: 15,
+                  color: active != null ? t.accent : t.muted,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    active != null ? 'Persona: ${active.name}' : 'Persona: None',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight:
+                          active != null ? FontWeight.w600 : FontWeight.w500,
+                      color: active != null ? t.text : t.muted,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.expand_more_rounded, size: 15, color: t.muted),
+              ]),
             ),
           ),
         ),
@@ -185,23 +250,33 @@ class _Greeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      if (!compact) ...[
-        Image.asset('assets/icons/appicon.png', width: 44, height: 44),
-        const SizedBox(height: 18),
-      ],
-      Text(
-        "$_salutation\nwhat's on your mind?",
-        textAlign: TextAlign.center,
-        style: GoogleFonts.inter(
-          fontSize: compact ? 24 : 28,
-          height: 1.25,
-          fontWeight: FontWeight.w400,
-          letterSpacing: -0.7,
-          color: t.text.withValues(alpha: 0.88),
+    return Obx(() {
+      final persona = Get.find<ChatController>().currentPersona;
+      final greeting = persona?.greeting?.trim();
+      final headline = (greeting != null && greeting.isNotEmpty)
+          ? greeting
+          : "$_salutation\nwhat's on your mind?";
+      return Column(children: [
+        if (!compact) ...[
+          if (persona != null)
+            PersonaAvatar(persona: persona, size: 44)
+          else
+            Image.asset('assets/icons/appicon.png', width: 44, height: 44),
+          const SizedBox(height: 18),
+        ],
+        Text(
+          headline,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: compact ? 24 : 28,
+            height: 1.25,
+            fontWeight: FontWeight.w400,
+            letterSpacing: -0.7,
+            color: t.text.withValues(alpha: 0.88),
+          ),
         ),
-      ),
-    ]);
+      ]);
+    });
   }
 }
 

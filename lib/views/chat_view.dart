@@ -12,12 +12,14 @@ import '../controllers/model_controller.dart';
 import '../controllers/home_controller.dart';
 import '../services/inference_service.dart';
 import '../services/local_image_service.dart';
+import '../services/persona_service.dart';
 import '../ffi/sd_ffi_bindings.dart';
 import '../utils/thought_parser.dart';
 import '../widgets/attachment_preview.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_drawer.dart';
 import '../widgets/home_empty_state.dart';
+import '../views/persona_view.dart';
 import '../core/ui.dart';
 import '../widgets/thought_disclosure.dart';
 import '../core/haptics.dart';
@@ -124,7 +126,7 @@ class ChatView extends GetView<ChatController> {
         if (controller.messages.isEmpty) {
           return Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Text('PrivateLM',
+            child: Text('ECHO',
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
@@ -134,6 +136,10 @@ class ChatView extends GetView<ChatController> {
         }
         final sid = controller.currentSessionId.value;
         final info = _modelInfo(context);
+        final persona = controller.currentPersona;
+        final subtitle = persona != null
+            ? '${info.name} · ${persona.name}'
+            : info.name;
         final title =
             controller.sessions.firstWhereOrNull((s) => s.id == sid)?.title ??
                 'Chat';
@@ -164,7 +170,7 @@ class ChatView extends GetView<ChatController> {
                             shape: BoxShape.circle, color: info.dot)),
                     const SizedBox(width: 6),
                     Flexible(
-                      child: Text(info.name,
+                      child: Text(subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
@@ -314,6 +320,7 @@ class ChatView extends GetView<ChatController> {
           child: Obx(() {
             final info = _modelInfo(ctx);
             final usage = _contextUsage();
+            final persona = controller.currentPersona;
             final text = isDark ? Colors.white : const Color(0xFF0B0B0C);
             final muted = Theme.of(ctx).hintColor;
             final warn = (usage?.pct ?? 0) >= 0.75;
@@ -358,6 +365,52 @@ class ChatView extends GetView<ChatController> {
                         style: GoogleFonts.inter(fontSize: 13, color: muted)),
                   ),
                 ]),
+                const SizedBox(height: 18),
+                Text('Persona',
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: muted)),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    showPersonaPickerSheet(
+                      context,
+                      selectedPersonaId: persona?.id,
+                      onSelected: (id) async {
+                        await Get.find<PersonaService>().setActive(id);
+                        await controller.setSessionPersona(id);
+                      },
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(children: [
+                      if (persona != null) ...[
+                        PersonaAvatar(persona: persona, size: 22),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Text(
+                          persona?.name ?? 'No persona (default assistant)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: text),
+                        ),
+                      ),
+                      Text('Change',
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: _appleBlue(ctx))),
+                    ]),
+                  ),
+                ),
                 if (usage != null) ...[
                   const SizedBox(height: 22),
                   Row(children: [

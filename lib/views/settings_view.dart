@@ -6,12 +6,14 @@ import '../core/ui.dart';
 import '../widgets/home_empty_state.dart' show providerLabel;
 import '../services/inference_service.dart';
 import '../services/hive_service.dart';
+import '../services/persona_service.dart';
 import '../services/local_image_service.dart';
 import '../services/update_service.dart';
 import '../services/device_info_service.dart';
 import '../services/device_info_native.dart' as platform_info;
 import '../ffi/sd_ffi_bindings.dart';
 import 'log_view.dart';
+import 'persona_view.dart';
 import '../core/haptics.dart';
 
 const _tabular = [FontFeature.tabularFigures()];
@@ -64,6 +66,7 @@ class SettingsView extends GetView<SettingsController> {
                     : 'Cloud',
                 builder: (ctx) => _buildInferenceGroup(ctx),
               ),
+              _buildPersonasRow(context),
               _navRow(
                 context,
                 icon: Icons.chat_bubble_outline_rounded,
@@ -134,7 +137,7 @@ class SettingsView extends GetView<SettingsController> {
                   child: Image.asset('assets/icons/appicon.png',
                       width: 32, height: 32),
                 ),
-                title: 'PrivateLM',
+                title: 'ECHO',
                 subtitle: controller.appVersion.value.isEmpty
                     ? 'by orailnoor & techjarves'
                     : 'Version ${controller.appVersion.value} · by orailnoor & techjarves',
@@ -143,6 +146,35 @@ class SettingsView extends GetView<SettingsController> {
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildPersonasRow(BuildContext context) {
+    final t = AppTokens.of(context);
+    var label = 'None';
+    if (Get.isRegistered<PersonaService>()) {
+      final ps = Get.find<PersonaService>();
+      final active = ps.activePersona;
+      if (active != null) {
+        label = active.name;
+      } else if (ps.personas.isNotEmpty) {
+        label = '${ps.personas.length} saved';
+      }
+    }
+    return AppRow(
+      icon: Icons.theater_comedy_outlined,
+      title: 'Personas',
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 140),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: t.caption.copyWith(fontSize: 14),
+        ),
+      ),
+      chevron: true,
+      onTap: () => Get.to(() => const PersonaView()),
     );
   }
 
@@ -431,7 +463,7 @@ class SettingsView extends GetView<SettingsController> {
             tickMarkShape: SliderTickMarkShape.noTickMark,
             showValueIndicator: ShowValueIndicator.never,
           ),
-          child: Slider(
+        child: Slider(
             value: value.clamp(min, max),
             min: min,
             max: max,

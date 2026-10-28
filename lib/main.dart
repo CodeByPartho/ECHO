@@ -15,6 +15,7 @@ import 'core/theme.dart';
 //////
 import 'core/routes.dart';
 import 'services/hive_service.dart';
+import 'services/persona_service.dart';
 import 'services/inference_service.dart';
 import 'services/cloud_service.dart';
 import 'services/download_service.dart';
@@ -81,6 +82,8 @@ void main() {
           },
         ));
 
+    Get.put(PersonaService().init());
+
     // Settings controller must be initialized before runApp for theme support
     final settingsController = Get.put(SettingsController());
     Get.put(CloudModelController());
@@ -131,7 +134,7 @@ void main() {
     // Keep last model as a quick-load option, but do not auto-load on startup.
     _validateLastModel();
 
-    runApp(const PrivateLMApp());
+    runApp(const EchoApp());
 
     // Apply system UI after frame is rendered so Get.mediaQuery is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -215,8 +218,8 @@ void _autoConfigureForDevice() {
       'maxTokens=${device.recommendedMaxTokens} for ${device.totalRamGB.value.toStringAsFixed(1)}GB RAM');
 }
 
-class PrivateLMApp extends StatelessWidget {
-  const PrivateLMApp({super.key});
+class EchoApp extends StatelessWidget {
+  const EchoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +228,7 @@ class PrivateLMApp extends StatelessWidget {
       final themeMode = settings.themeMode.value;
       final scale = settings.fontScale.value; // read here → Obx tracks it
       return GetMaterialApp(
-        title: 'PrivateLM',
+        title: 'ECHO',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

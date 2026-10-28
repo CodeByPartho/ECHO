@@ -17,8 +17,10 @@ import '../core/constants.dart';
 import '../core/ui.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
+import '../models/persona.dart';
 import '../ffi/sd_ffi_bindings.dart';
 import '../services/hive_service.dart';
+import '../services/persona_service.dart';
 import '../services/inference_service.dart';
 import '../services/cloud_service.dart';
 import '../services/local_image_service.dart';
@@ -185,12 +187,58 @@ class ChatController extends GetxController {
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
-  void createNewChat() {
+  PersonaService? get _personaService =>
+      Get.isRegistered<PersonaService>() ? Get.find<PersonaService>() : null;
+
+  ChatSession? get currentSession =>
+      sessions.firstWhereOrNull((s) => s.id == currentSessionId.value);
+
+  /// The persona bound to the current chat session, or the global active
+  /// persona when still on the blank home screen.
+  Persona? get currentPersona {
+    final ps = _personaService;
+    if (ps == null) return null;
+    final session = currentSession;
+    if (session != null) {
+      if (messages.isEmpty && session.personaId == null) {
+        return ps.activePersona;
+      }
+      return ps.byId(session.personaId);
+    }
+    return ps.activePersona;
+  }
+
+  void createNewChat({String? personaId}) {
     final id = _uuid.v4();
-    final session = ChatSession(id: id, title: 'New Chat');
+    final defaultPersonaId =
+        personaId ?? _personaService?.activePersona?.id;
+    final session = ChatSession(
+      id: id,
+      title: 'New Chat',
+      personaId: defaultPersonaId,
+    );
     _hive.saveSession(id, session.toMap());
     sessions.insert(0, session);
     openChat(id);
+  }
+
+  Future<void> setSessionPersona(String? personaId) async {
+    final ps = _personaService;
+    if (ps != null) {
+      await ps.setActive(personaId);
+    }
+    final sid = currentSessionId.value;
+    if (sid.isEmpty) return;
+    final idx = sessions.indexWhere((s) => s.id == sid);
+    if (idx < 0) return;
+    final current = sessions[idx];
+    final nextId = (personaId == null || personaId.isEmpty) ? null : personaId;
+    final updated = nextId == null
+        ? current.copyWith(clearPersona: true)
+        : current.copyWith(personaId: nextId);
+    await _hive.saveSession(updated.id, updated.toMap());
+    sessions[idx] = updated;
+    _resetInferenceContext();
   }
 
   void _resetInferenceContext() {
@@ -589,7 +637,20 @@ class ChatController extends GetxController {
     // Create a session if none selected
     if (currentSessionId.value.isEmpty) {
       createNewChat();
+    } else if (messages.isEmpty) {
+      // If a blank session was created before the user picked a default persona,
+      // bind the active persona on the first message.
+      final session = currentSession;
+      final activeId = _personaService?.activePersona?.id;
+      if (session != null && session.personaId == null && activeId != null) {
+        final updated = session.copyWith(personaId: activeId);
+        _hive.saveSession(updated.id, updated.toMap());
+        final idx = sessions.indexWhere((s) => s.id == updated.id);
+        if (idx >= 0) sessions[idx] = updated;
+      }
     }
+
+    final activePersona = currentPersona;
 
     // Mark busy before the first await (reading an attached image), so a
     // double tap can't pass the guard above twice and send duplicates.
@@ -790,6 +851,7 @@ class ChatController extends GetxController {
           rawResponse = await inference.generate(
             prompt: effectiveText,
             systemPrompt: _effectiveSystemPrompt,
+            persona: activePersona,
             conversationHistory: history,
             source: 'chat',
             imagePath: imagePath,
@@ -813,6 +875,7 @@ class ChatController extends GetxController {
         ];
         rawResponse = await cloud.sendMessage(
           messages: apiMessages,
+          persona: activePersona,
           imageBase64: imgBase64, // already encoded before clearImage()
           onToken: (token) {
             if (generationId != _generationSerial) return;
