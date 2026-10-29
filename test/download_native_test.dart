@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privatelm/services/download_native.dart';
+import 'package:echo/services/download_native.dart';
 
 /// Serves [body] slowly in small chunks, optionally honouring Range requests,
 /// and records the Range header of every request.

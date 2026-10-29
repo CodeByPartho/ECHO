@@ -4,8 +4,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:privatelm/services/inference_service.dart';
-import 'package:privatelm/services/openai_server_service_io.dart';
+import 'package:echo/models/persona.dart';
+import 'package:echo/services/inference_service.dart';
+import 'package:echo/services/openai_server_service_io.dart';
 
 void main() {
   late OpenAiServerService server;
@@ -215,6 +216,7 @@ class FakeInference extends GetxService implements InferenceService {
   Future<String> generate({
     required String prompt,
     String? systemPrompt,
+    Persona? persona,
     List<Map<String, String>>? conversationHistory,
     String source = 'chat',
     String? imagePath,

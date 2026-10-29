@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privatelm/services/gguf_metadata.dart';
+import 'package:echo/services/gguf_metadata.dart';
 
 /// Minimal GGUF v3 writer for tests (header + metadata only).
 class _GgufBuilder {

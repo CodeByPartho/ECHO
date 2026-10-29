@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:privatelm/core/constants.dart';
-import 'package:privatelm/services/hive_service.dart';
+import 'package:echo/core/constants.dart';
+import 'package:echo/services/hive_service.dart';
 
 void main() {
   late Directory dir;

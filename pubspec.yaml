@@ -1,4 +1,4 @@
-name: privatelm
+name: echo
 description: AI Chat — Local/Cloud LLM Assistant
 publish_to: "none"
 version: 1.0.7+7
@@ -73,6 +73,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.3
 
 dependency_overrides:
   llama_flutter_android:
@@ -85,3 +86,9 @@ flutter:
     - assets/
     - assets/webgpu_engine.html
     - assets/icons/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+  min_sdk_android: 21

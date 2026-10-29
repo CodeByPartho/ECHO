@@ -26,7 +26,7 @@ set(GGML_NATIVE OFF CACHE BOOL "Cross-compiling: never tune for the build host" 
 #    i8mm, SVE2, SME); the fastest one the phone supports is loaded.
 #  - libggml-vulkan.so: GPU backend, loaded only when the app allows it, so
 #    phones with unstable Vulkan drivers never initialise it.
-option(LLAMA_ANDROID_VULKAN "Build the Vulkan GPU backend" ON)
+option(LLAMA_ANDROID_VULKAN "Build the Vulkan GPU backend" OFF)
 if(ANDROID_ABI STREQUAL "arm64-v8a")
     set(GGML_BACKEND_DL ON CACHE BOOL "Load backends at runtime" FORCE)
     set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "Build every Arm CPU variant" FORCE)

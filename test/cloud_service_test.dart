@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
-import 'package:privatelm/core/constants.dart';
-import 'package:privatelm/services/app_log_service.dart';
-import 'package:privatelm/services/cloud_service.dart';
-import 'package:privatelm/services/hive_service.dart';
+import 'package:echo/core/constants.dart';
+import 'package:echo/services/app_log_service.dart';
+import 'package:echo/services/cloud_service.dart';
+import 'package:echo/services/hive_service.dart';
 
 String _chunk(String token, {String? finish}) => 'data: ${jsonEncode({
       'choices': [

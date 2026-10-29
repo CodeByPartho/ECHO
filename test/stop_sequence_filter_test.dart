@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privatelm/services/stop_sequence_filter.dart';
+import 'package:echo/services/stop_sequence_filter.dart';
 
 String run(List<String> stops, List<String> tokens, {List<String>? emitted}) {
   final f = StopSequenceFilter(stops);
