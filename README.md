@@ -40,10 +40,10 @@ When additional compute or frontier capabilities are needed, ECHO seamlessly tra
 
 1. **Step 1: Export your chat history**  
    Export your conversation history (HTML, JSON, or TXT format) directly from WhatsApp, Messenger, Telegram, or your messaging app of choice.
-2. **Step 2: Run the Persona Generation Master Prompt**  
-   Open ChatGPT, Claude, or Gemini, paste the master prompt provided below, and attach or append your exported chat history at the bottom.
+2. **Step 2: Run the Persona Calibration Prompt**  
+   Provide your chat export along with the calibration prompt template below to an LLM of your choice (local or cloud API).
 3. **Step 3: Save as `persona.json`**  
-   Copy the AI's generated JSON output and save it as a file named `persona.json` on your device or cloud drive.
+   Save the resulting JSON structure into a file named `persona.json` on your device storage.
 4. **Step 4: Import and Chat in ECHO**  
    Open ECHO, go to **Settings ➔ Personas ➔ Import JSON**, select your `persona.json` file, and start chatting with your clone immediately!
 
@@ -235,7 +235,7 @@ This project is licensed under the **[MIT License](LICENSE)**.
 
 ECHO is based on and extends [cross-platform-llm-client](https://github.com/orailnoor/cross-platform-llm-client) by **orailnoor** and contributors, incorporating an unlimited persona engine, dynamic prompt composition, and customized UI.
 
-The UI and Persona Engine implementation of ECHO was selected to be part of the [XERJ Corpus Hub](https://xerj.org), serving as a reference implementation for AI coding agents.
+Selected for the [XERJ Corpus Hub](https://xerj.org) as a reference for high-quality UI architecture and state management.
 
 ---
 

@@ -148,7 +148,7 @@
 
 ### Documentation
 - Comprehensive README.md with feature comparison
-- Research comparison summary (ChatGPT, Gemini, Kimi)
+- Research comparison summary across mobile LLM inference engines
 - Implementation plan and checklist
 - Quick start guide
 - Contributing guidelines
