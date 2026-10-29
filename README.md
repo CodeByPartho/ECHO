@@ -16,6 +16,7 @@
     <a href="https://github.com/ggerganov/llama.cpp"><img src="https://img.shields.io/badge/Engine-Offline%20GGUF%20(llama.cpp)-FF6F00?style=for-the-badge" alt="Local LLM" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" /></a>
     <a href="ECHO.apk"><img src="https://img.shields.io/badge/Download-ECHO.apk-blue?style=for-the-badge&logo=android" alt="Download APK" /></a>
+    <a href="https://xerj.org"><img src="https://img.shields.io/badge/Featured%20in-XERJ%20Corpus%20Hub-blueviolet?style=for-the-badge" alt="Featured in XERJ Corpus Hub" /></a>
   </p>
 
 </div>
@@ -233,6 +234,8 @@ The APK binary will be produced at:
 This project is licensed under the **[MIT License](LICENSE)**.
 
 ECHO is based on and extends [cross-platform-llm-client](https://github.com/orailnoor/cross-platform-llm-client) by **orailnoor** and contributors, incorporating an unlimited persona engine, dynamic prompt composition, and customized UI.
+
+The UI and Persona Engine implementation of ECHO was selected to be part of the [XERJ Corpus Hub](https://xerj.org), serving as a reference implementation for AI coding agents.
 
 ---
 
