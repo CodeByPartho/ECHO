@@ -23,7 +23,7 @@
 
 ---
 
-## 📖 Overview
+## Overview
 
 **ECHO** brings complete privacy and offline utility to on-device conversational AI. Powered by native `llama.cpp` ARM acceleration, ECHO executes quantized Large Language Models (LLMs) such as Qwen, Llama, Gemma, and SmolLM entirely on your mobile phone without transmitting prompts or telemetry to remote servers.
 
@@ -31,12 +31,12 @@ When additional compute or frontier capabilities are needed, ECHO seamlessly tra
 
 ---
 
-## 🧠 The ECHO Persona Engine (Clone Anyone)
+## The ECHO Persona Engine (Clone Anyone)
 
-> 🧠 **The Signature Feature of ECHO**  
+> **The Signature Feature of ECHO**  
 > While standard AI apps provide one rigid assistant, ECHO features a custom-built **Persona Engine**. You can take real chat histories exported from **WhatsApp**, **Facebook Messenger**, **Telegram**, or **iMessage**, convert them into a structured `.json` persona profile, and ECHO will mimic that person's exact texting habits, tone, cadence, emoji habits, and vocabulary.
 
-### 📋 How to Clone Anyone (Step-by-Step Guide)
+### How to Clone Anyone (Step-by-Step Guide)
 
 1. **Step 1: Export your chat history**  
    Export your conversation history (HTML, JSON, or TXT format) directly from WhatsApp, Messenger, Telegram, or your messaging app of choice.
@@ -48,7 +48,7 @@ When additional compute or frontier capabilities are needed, ECHO seamlessly tra
    Open ECHO, go to **Settings ➔ Personas ➔ Import JSON**, select your `persona.json` file, and start chatting with your clone immediately!
 
 <details>
-<summary><b>👉 Click here to view the Persona Generation Master Prompt</b></summary>
+<summary><b>Click here to view the Persona Calibration Prompt template</b></summary>
 <br>
 
 ```text
@@ -89,7 +89,7 @@ Here is the chat history:
 
 ---
 
-## 📸 Screenshot Gallery
+## Screenshot Gallery
 
 <table align="center">
   <tr>
@@ -137,20 +137,20 @@ Here is the chat history:
 
 ---
 
-## 🚀 Core Features
+## Core Features
 
-- 🔒 **100% Offline Privacy** — Runs quantized GGUF weights locally via llama.cpp with zero cloud telemetry or data leakage.
-- 🎭 **Unlimited Persona Engine** — Create infinite custom AI profiles, import/export portable JSON files, and clone texting styles.
-- 💬 **Few-Shot Demonstration Calibration** — Injects verbatim demonstration dialogues (`user` / `assistant` turns) to teach tone, slang, and character.
-- 🌐 **Hybrid Cloud Gateway** — Seamlessly connect to OpenRouter, OpenAI, Anthropic, Google Gemini, DeepSeek, or NVIDIA NIM when extra compute is needed.
-- ⚡ **Local OpenAI-Compatible Server** — Host an on-device `/v1/chat/completions` HTTP server for local tools, IDEs, and LAN devices.
-- 🧠 **Dynamic Prompt Composer** — Automatically formats message context to match ChatML, Llama-3, Gemma, and Phi templating conventions.
-- 📦 **In-App Model Hub** — One-tap downloads for popular SLMs (Qwen 2.5, SmolLM2, Gemma) or import your own `.gguf` files from device storage.
-- ⚙️ **Fine-Tuned Sampling Parameters** — Per-persona and global controls for temperature, top-p, max tokens, and custom stop sequences.
+- **100% Offline Privacy** — Runs quantized GGUF weights locally via llama.cpp with zero cloud telemetry or data leakage.
+- **Unlimited Persona Engine** — Create infinite custom AI profiles, import/export portable JSON files, and clone texting styles.
+- **Few-Shot Demonstration Calibration** — Injects verbatim demonstration dialogues (`user` / `assistant` turns) to teach tone, slang, and character.
+- **Hybrid Cloud Gateway** — Seamlessly connect to OpenRouter, OpenAI, Anthropic, Google Gemini, DeepSeek, or NVIDIA NIM when extra compute is needed.
+- **Local OpenAI-Compatible Server** — Host an on-device `/v1/chat/completions` HTTP server for local tools, IDEs, and LAN devices.
+- **Dynamic Prompt Composer** — Automatically formats message context to match ChatML, Llama-3, Gemma, and Phi templating conventions.
+- **In-App Model Hub** — One-tap downloads for popular SLMs (Qwen 2.5, SmolLM2, Gemma) or import your own `.gguf` files from device storage.
+- **Fine-Tuned Sampling Parameters** — Per-persona and global controls for temperature, top-p, max tokens, and custom stop sequences.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph TD
@@ -176,7 +176,7 @@ graph TD
 
 ---
 
-## 📲 Installation
+## Installation
 
 ### Option 1: Direct APK Installation (Recommended)
 1. Download the pre-built application: [**`ECHO.apk`**](ECHO.apk)
@@ -215,7 +215,7 @@ The APK binary will be produced at:
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology | Role |
 | :--- | :--- | :--- |
@@ -229,7 +229,7 @@ The APK binary will be produced at:
 
 ---
 
-## 📄 License & Acknowledgements
+## License & Acknowledgements
 
 This project is licensed under the **[MIT License](LICENSE)**.
 
@@ -239,4 +239,4 @@ Selected for the [XERJ Corpus Hub](https://xerj.org) as a reference for high-qua
 
 ---
 
-<p align="center">Made with ❤️ by Partho</p>
+<p align="center">Built by Partho</p>
