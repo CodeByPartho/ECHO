@@ -15,7 +15,7 @@
     <a href="https://android.com"><img src="https://img.shields.io/badge/Platform-Android%208.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" /></a>
     <a href="https://github.com/ggerganov/llama.cpp"><img src="https://img.shields.io/badge/Engine-Offline%20GGUF%20(llama.cpp)-FF6F00?style=for-the-badge" alt="Offline Engine" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" /></a>
-    <a href="ECHO.apk"><img src="https://img.shields.io/badge/Download-ECHO.apk-blue?style=for-the-badge&logo=android" alt="Download APK" /></a>
+    <a href="https://github.com/CodeByPartho/ECHO/releases/latest"><img src="https://img.shields.io/badge/Download-ECHO.apk-blue?style=for-the-badge&logo=android" alt="Download APK" /></a>
   </p>
 
 </div>
@@ -178,7 +178,7 @@ graph TD
 ## Installation
 
 ### Option 1: Direct APK Installation (Recommended)
-1. Download the pre-built application: [**`ECHO.apk`**](ECHO.apk)
+1. Download the pre-built application from the [Releases page](https://github.com/CodeByPartho/ECHO/releases/latest).
 2. On your Android device, open the downloaded file.
 3. When prompted, allow installation from your browser or file manager.
 4. Launch **ECHO** and select or import a model to begin.
