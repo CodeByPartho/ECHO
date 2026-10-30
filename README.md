@@ -1,182 +1,239 @@
-# PrivateLM
+<div align="center">
 
-[![Live Web App](https://img.shields.io/badge/Live_Demo-Try_Web_App-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://ai-chat-orailnoor.web.app/)
+  <img src="assets/icon.png" width="128" height="128" alt="ECHO Logo" />
 
-A production-ready, cross-platform AI chat client built with Flutter. It unifies local on-device LLM inference (Android) with cloud API access, giving users full control over how their models run.
+  <h1>ECHO</h1>
 
-![Image generation tested on Moto G71 (Snapdragon), Oneplus 10r (Mediatek), Pixel 6A (Tensor), Poco F1 (Snapdragon), Samsung s23 (Snapdragon) 4 steps fast](PrivateLM.png)
-_Image generation tested on Moto G71 (Snapdragon), Oneplus 10r (Mediatek), Pixel 6A (Tensor), Poco F1 (Snapdragon), Samsung s23 (Snapdragon) 4 steps fast_
+  <p><b>Your private, offline AI companion with unlimited personas</b></p>
 
-![Generated on pixel 6 with 20 step](IMG_2390.png)
-_Generated on pixel 6 with 20 step_
+  <p>
+    A high-performance Android AI assistant built with Flutter that runs quantized GGUF models directly on-device with zero internet connection, supports hybrid cloud providers, and features an unlimited custom persona engine.
+  </p>
 
----
+  <p>
+    <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.47+-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter" /></a>
+    <a href="https://android.com"><img src="https://img.shields.io/badge/Platform-Android%208.0+-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" /></a>
+    <a href="https://github.com/ggerganov/llama.cpp"><img src="https://img.shields.io/badge/Engine-Offline%20GGUF%20(llama.cpp)-FF6F00?style=for-the-badge" alt="Local LLM" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" /></a>
+    <a href="ECHO.apk"><img src="https://img.shields.io/badge/Download-ECHO.apk-blue?style=for-the-badge&logo=android" alt="Download APK" /></a>
+  </p>
 
-## What It Does
-
-- **Local Inference on Android** — Download and run GGUF models directly on your phone using GPU-accelerated inference (Vulkan). No internet required after download.
-- **Cloud API Fallback** — Seamlessly switch to OpenAI, Anthropic, Google Gemini, or Kimi (Moonshot AI) when you need more power or are on unsupported platforms.
-- **Multimodal Chat** — Send text and images in conversations. Vision support works with both local models (Qwen2-VL) and cloud providers.
-- **Persistent Sessions** — All chats and settings are stored locally via Hive. Nothing leaves your device unless you explicitly choose cloud mode.
-- **Background Services** — Firebase Cloud Messaging integration for push updates and background task handling.
-- **Smart Auto-Configuration** — On first launch, the app detects your device's RAM and recommends optimal context size and token limits automatically.
-- **Task Management (in development)** — A task view for structured, multi-step AI workflows is being built. It is not available in the app yet.
+</div>
 
 ---
 
-## Technical Architecture
+## 📖 Overview
 
-### Stack
+**ECHO** brings complete privacy and offline utility to on-device conversational AI. Powered by native `llama.cpp` ARM acceleration, ECHO executes quantized Large Language Models (LLMs) such as Qwen, Llama, Gemma, and SmolLM entirely on your mobile phone without transmitting prompts or telemetry to remote servers.
 
-- **Framework:** Flutter 3.x (Dart >=3.3.0)
-- **State Management:** GetX
-- **Local Storage:** Hive
-- **Networking:** Dio + `package:http`
-- **Background Execution:** `flutter_background_service` + `flutter_local_notifications`
-- **Push Notifications:** Firebase Core + Firebase Messaging
+When additional compute or frontier capabilities are needed, ECHO seamlessly transitions to cloud endpoints (OpenRouter, OpenAI, Anthropic, Google Gemini, DeepSeek, NVIDIA NIM, or custom APIs) with secure local key storage.
 
-### Inference Pipeline
+---
 
+## 🧠 The ECHO Persona Engine (Clone Anyone)
+
+> 🧠 **The Signature Feature of ECHO**  
+> While standard AI apps provide one rigid assistant, ECHO features a custom-built **Persona Engine**. You can take real chat histories exported from **WhatsApp**, **Facebook Messenger**, **Telegram**, or **iMessage**, convert them into a structured `.json` persona profile, and ECHO will mimic that person's exact texting habits, tone, cadence, emoji habits, and vocabulary.
+
+### 📋 How to Clone Anyone (Step-by-Step Guide)
+
+1. **Step 1: Export your chat history**  
+   Export your conversation history (HTML, JSON, or TXT format) directly from WhatsApp, Messenger, Telegram, or your messaging app of choice.
+2. **Step 2: Run the Persona Generation Master Prompt**  
+   Open ChatGPT, Claude, or Gemini, paste the master prompt provided below, and attach or append your exported chat history at the bottom.
+3. **Step 3: Save as `persona.json`**  
+   Copy the AI's generated JSON output and save it as a file named `persona.json` on your device or cloud drive.
+4. **Step 4: Import and Chat in ECHO**  
+   Open ECHO, go to **Settings ➔ Personas ➔ Import JSON**, select your `persona.json` file, and start chatting with your clone immediately!
+
+<details>
+<summary><b>👉 Click here to view the Persona Generation Master Prompt</b></summary>
+<br>
+
+```text
+I am providing you with an exported chat history (HTML, JSON, or TXT) between me and another person. I want to create a "Persona" file so I can chat with an AI that mimics this person's exact texting style.
+
+Please analyze ONLY the messages sent by the other person (not me). Study their:
+1. Tone (playful, dry, affectionate, sarcastic, etc.)
+2. Message length (short bursts vs. long paragraphs)
+3. Emoji usage (which ones, how often)
+4. Punctuation and capitalization habits
+5. Common slang, typos, or pet phrases
+
+Output ONLY a valid JSON file in this exact format (do not include markdown blocks or any other text):
+{
+  "schema_version": "1.0",
+  "persona_id": "unique-name",
+  "name": "Their Name",
+  "aliases": ["Any other names they used"],
+  "system_prompt": "You are [Name]. You text like this: [Detailed description of their style, tone, and habits]. Never break character. Never say you are an AI.",
+  "few_shot_examples": [
+    {"user": "Example message from me", "assistant": "Example reply from them"},
+    {"user": "Another message from me", "assistant": "Another reply from them"}
+  ],
+  "generation_settings": {
+    "temperature": 0.85,
+    "top_p": 0.9,
+    "max_tokens": 250,
+    "stop": []
+  }
+}
+Provide 5-8 high-quality few_shot_examples verbatim from the chat history. 
+
+Here is the chat history:
+[PASTE YOUR CHAT EXPORT HERE]
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        UI Layer                              │
-│   ChatView / ModelView / ServerView / SettingsView          │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                    Controllers (GetX)                        │
-│   ChatController · TaskController · ModelController         │
-│   SettingsController · HomeController                       │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                      Services                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ InferenceService│  │  CloudService   │  │DownloadSvc  │ │
-│  │  (local GGUF)   │  │ (OpenAI/Claude/ │  │ (model dl)  │ │
-│  │                 │  │  Gemini/Kimi)   │  │             │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │  HiveService    │  │ DeviceInfoSvc   │  │ExecutionSvc │ │
-│  │  ( persistence) │  │  (RAM/GPU tier) │  │ (bg tasks)  │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+
+</details>
+
+---
+
+## 📸 Screenshot Gallery
+
+<table align="center">
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/photo_7_2026-10-29_22-09-28.jpg" width="240" alt="ECHO Home & Chat" /><br /><br />
+      <b>ECHO Home & Chat</b><br />
+      <sub>Active persona pill, model selector & offline guide</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/photo_1_2026-10-29_22-09-28.jpg" width="240" alt="Conversations Drawer" /><br /><br />
+      <b>Conversations Drawer</b><br />
+      <sub>Session search, thread management & quick chat switch</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/photo_6_2026-10-29_22-09-28.jpg" width="240" alt="Model Management" /><br /><br />
+      <b>Model Management</b><br />
+      <sub>Download GGUF/LiteRT models or import local files</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/photo_5_2026-10-29_22-09-28.jpg" width="240" alt="Cloud Provider Settings" /><br /><br />
+      <b>Cloud Provider Settings</b><br />
+      <sub>OpenRouter, OpenAI, Claude, Gemini & DeepSeek</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/photo_4_2026-10-29_22-09-28.jpg" width="240" alt="Local API Server" /><br /><br />
+      <b>Local API Server</b><br />
+      <sub>On-device OpenAI-compatible HTTP endpoint & LAN binding</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/photo_3_2026-10-29_22-09-28.jpg" width="240" alt="App & Model Settings" /><br /><br />
+      <b>App & Model Settings</b><br />
+      <sub>Persona manager, theme, context size & stop sequences</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="3">
+      <img src="docs/screenshots/photo_2_2026-10-29_22-09-28.jpg" width="240" alt="Device Diagnostics & About" /><br /><br />
+      <b>Device Diagnostics & About</b><br />
+      <sub>Hardware RAM benchmarking, tier detection & version info</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🚀 Core Features
+
+- 🔒 **100% Offline Privacy** — Runs quantized GGUF weights locally via llama.cpp with zero cloud telemetry or data leakage.
+- 🎭 **Unlimited Persona Engine** — Create infinite custom AI profiles, import/export portable JSON files, and clone texting styles.
+- 💬 **Few-Shot Demonstration Calibration** — Injects verbatim demonstration dialogues (`user` / `assistant` turns) to teach tone, slang, and character.
+- 🌐 **Hybrid Cloud Gateway** — Seamlessly connect to OpenRouter, OpenAI, Anthropic, Google Gemini, DeepSeek, or NVIDIA NIM when extra compute is needed.
+- ⚡ **Local OpenAI-Compatible Server** — Host an on-device `/v1/chat/completions` HTTP server for local tools, IDEs, and LAN devices.
+- 🧠 **Dynamic Prompt Composer** — Automatically formats message context to match ChatML, Llama-3, Gemma, and Phi templating conventions.
+- 📦 **In-App Model Hub** — One-tap downloads for popular SLMs (Qwen 2.5, SmolLM2, Gemma) or import your own `.gguf` files from device storage.
+- ⚙️ **Fine-Tuned Sampling Parameters** — Per-persona and global controls for temperature, top-p, max tokens, and custom stop sequences.
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    UI[Flutter Material 3 UI] --> Controllers[GetX Reactive Controllers]
+    
+    Controllers --> ChatCtrl[ChatController]
+    Controllers --> ModelCtrl[ModelController]
+    Controllers --> SettingsCtrl[SettingsController]
+    
+    ChatCtrl --> PersonaSvc[PersonaService & Codec]
+    ChatCtrl --> Composer[PromptComposer]
+    
+    Composer --> InfSvc[InferenceService Gateway]
+    
+    InfSvc --> LocalEngine[Local Native Engine llama.cpp / LiteRT]
+    InfSvc --> CloudEngine[Cloud Gateway OpenAI / Claude / Gemini / OpenRouter]
+    
+    LocalEngine --> GGUFStore[(On-Device GGUF Models)]
+    Controllers --> Storage[(Hive Local NoSQL Storage)]
+    
+    InfSvc --> ServerSvc[Local OpenAI API Server]
 ```
 
-### Local Inference (Android)
+---
 
-The app uses `llama_flutter_android`, a custom Flutter plugin wrapping `llama.cpp` for ARM64 devices. At runtime it:
+## 📲 Installation
 
-1. **Detects GPU capabilities** via Vulkan to determine offload layers.
-2. **Selects thread count** based on device tier (ultra / high / mid / low).
-3. **Loads the GGUF model** with progress streaming.
-4. **Generates tokens** via `generateChat()` with native chat-template support (ChatML, Llama-3, Gemma, Phi).
-5. **Falls back** to manual prompt construction if native templates fail.
-
-Idle detection (5s) and hard timeouts (180s) keep the UX responsive even on underpowered hardware.
-
-### Cloud Inference
-
-`CloudService` normalizes four different API shapes into a single interface:
-
-- **OpenAI** — standard `/v1/chat/completions`
-- **Anthropic** — Messages API with separate system param
-- **Google Gemini** — `generateContent` with inline image base64
-- **Kimi** — OpenAI-compatible endpoint from Moonshot AI
-
-API keys are stored in Hive and never transmitted anywhere except to the provider's endpoint.
-
-### Cross-Platform Abstraction
-
-Local inference is conditionally compiled:
-
-- **Android** → `inference_android.dart` (full llama.cpp engine)
-- **Web** → `inference_stub.dart` (cloud-only, local coming soon)
-- **iOS** → `inference_android.dart` (full llama.cpp engine via Metal GPU)
-
-The `InferenceService` exposes `supportsLocalInference` so the UI can hide local-model UI on unsupported platforms.
+### Option 1: Direct APK Installation (Recommended)
+1. Download the pre-built application: [**`ECHO.apk`**](ECHO.apk)
+2. On your Android device, open the downloaded file.
+3. When prompted, allow installation from your browser or file manager.
+4. Launch **ECHO** and select or import a model to begin.
 
 ---
 
-## Supported Platforms
+### Option 2: Build from Source
 
-| Platform | Local Inference | Cloud APIs | Notes                           |
-| -------- | --------------- | ---------- | ------------------------------- |
-| Android  | ✅ Yes          | ✅ Yes     | CPU offload via NEON; minSdk 28 |
-| iOS      | ✅ Yes          | ✅ Yes     | Metal GPU acceleration          |
-| Web      | ❌ No           | ✅ Yes     | Cloud-only (local coming soon)  |
+#### Prerequisites
+- **Flutter SDK**: `>= 3.47.8` (Dart `>= 3.13.7`)
+- **Android SDK & NDK**: `compileSdk 35`, `minSdk 26`
+- **JDK**: Java 17
 
-### iOS / iPad (Installation via AltServer)
-The iOS/iPad release is distributed as a sideloadable IPA file. Due to the RAM requirements for local models, iPad is the recommended iOS target, but it can be installed on iPhones.
-
-Here is how you can install the app using AltStore and AltServer:
-
-**Prerequisites:**
-* Ensure **AltServer** is installed and running on your Mac or Windows PC.
-* Your iOS device must be connected to the same Wi-Fi network as your computer, or connected directly via a USB cable.
-* You must have **AltStore** successfully installed on your iOS device.
-
-**Installation Steps:**
-1. **Download the IPA:** Go to the [Releases](https://github.com/orailnoor/cross-platform-llm-client/releases) page on your iOS device (using Safari) and download the latest `PrivateLM-iOS.zip` package, extract it to get the `.ipa` file.
-2. **Open in AltStore:**
-   * Locate the extracted `.ipa` file in your device's "Files" app.
-   * Tap the **Share** button and select **AltStore** from the list of apps.
-   * *Alternatively*, you can open the AltStore app, go to the **My Apps** tab, tap the **"+" (plus)** icon in the top-left corner, and select the downloaded IPA file.
-3. **Install:** AltStore will begin installing the app. You may be prompted to enter your Apple ID credentials if this is your first time.
-4. **Enable Developer Mode:** On iOS 16 and later, ensure "Developer Mode" is enabled in your device's Settings (`Settings > Privacy & Security > Developer Mode`) to launch the sideloaded app.
-5. **Launch:** Once installation is finished, PrivateLM will appear in the **My Apps** tab in AltStore and on your device's home screen!
-
-*Note: Sideloaded apps via AltStore expire after 7 days, but AltStore will attempt to automatically refresh them in the background when connected to the same Wi-Fi as your computer running AltServer.*
-
----
-
-## Build Configuration
-
-### Prerequisites
-
-- Flutter SDK >=3.3.0
-- Android SDK (API 26+)
-- JDK 17
-- NDK (bundled with Android SDK)
-
-### Android
-
+#### Build Instructions
 ```bash
+# Clone the repository
+git clone https://github.com/CodeByPartho/ECHO.git
+cd ECHO
+
+# Install Flutter dependencies
 flutter pub get
+
+# Run static analysis and unit tests
+flutter analyze
+flutter test
+
+# Build debug APK
 flutter build apk --debug
 ```
 
-Release APKs require a stable signing key. Copy
-`android/key.properties.example` to `android/key.properties`, fill in the
-keystore values, and keep both the key and its backup. Android accepts an APK
-upgrade only when it is signed with the same key as the installed APK.
-
-```bash
-cp android/key.properties.example android/key.properties
-flutter build apk --release --split-per-abi
-```
-
-Never rotate the signing key between GitHub releases. The per-ABI APKs must
-also keep increasing the build number in `pubspec.yaml`.
-
-### iOS
-
-```bash
-flutter pub get
-cd ios
-pod install
-flutter build ios
-```
-
-### Web
-
-```bash
-flutter pub get
-flutter build web --release
-```
+The APK binary will be produced at:
+`build/app/outputs/flutter-apk/app-debug.apk`
 
 ---
 
-## License
+## 🛠️ Tech Stack
 
-MIT — see [LICENSE](./LICENSE) for details.
+| Layer | Technology | Role |
+| :--- | :--- | :--- |
+| **Framework** | [Flutter 3.47+](https://flutter.dev) | Cross-platform mobile UI |
+| **Language** | [Dart 3.13+](https://dart.dev) | Application logic & null safety |
+| **State Management** | [GetX](https://pub.dev/packages/get) | Reactive controllers & dependency injection |
+| **Local Storage** | [Hive](https://pub.dev/packages/hive) | Embedded on-device NoSQL storage |
+| **Inference Engine** | [llama.cpp](https://github.com/ggerganov/llama.cpp) | Native ARM NEON GGUF execution |
+| **ML Acceleration** | Google LiteRT | On-device hardware delegation |
+| **Networking** | [Dio](https://pub.dev/packages/dio) & Http | Cloud API streaming and model downloads |
+
+---
+
+## 📄 License & Acknowledgements
+
+This project is licensed under the **[MIT License](LICENSE)**.
+
+ECHO is based on and extends [cross-platform-llm-client](https://github.com/orailnoor/cross-platform-llm-client) by **orailnoor** and contributors, incorporating an unlimited persona engine, dynamic prompt composition, and customized UI.
+
+---
+
+<p align="center">Made with ❤️ by Partho</p>

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://privatelm.app/schemas/persona_schema.json",
+  "title": "PrivateLM Persona Schema",
+  "description": "Schema for importing and exporting AI personas in PrivateLM (v1.0).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "persona_id",
+    "name",
+    "system_prompt"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Persona schema version string (e.g. \"1.0\")."
+    },
+    "persona_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier (UUID or slug) for the persona."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable display name of the persona."
+    },
+    "aliases": {
+      "type": "array",
+      "default": [],
+      "description": "Optional alternative names or handles for this persona.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "system_prompt": {
+      "type": "string",
+      "description": "System instruction injected ahead of conversation history for local and cloud inference."
+    },
+    "greeting": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional opening line displayed in the empty-chat state when this persona is active."
+    },
+    "avatar_path": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional local file path or asset reference for the persona avatar."
+    },
+    "few_shot_examples": {
+      "type": "array",
+      "default": [],
+      "description": "Example user/assistant turns injected between the system prompt and live conversation history.",
+      "items": {
+        "type": "object",
+        "required": [
+          "user",
+          "assistant"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Example user prompt."
+          },
+          "assistant": {
+            "type": "string",
+            "description": "Example assistant response."
+          }
+        }
+      }
+    },
+    "generation_settings": {
+      "type": "object",
+      "default": {},
+      "description": "Optional per-persona generation parameter overrides. Null or omitted fields fall back to global app settings.",
+      "additionalProperties": true,
+      "properties": {
+        "temperature": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 2.0,
+          "description": "Sampling temperature override (clamped to [0.0, 2.0])."
+        },
+        "top_p": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Nucleus sampling top_p override (clamped to [0.0, 1.0])."
+        },
+        "max_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 32768,
+          "description": "Maximum generated tokens override (clamped to [1, 32768])."
+        },
+        "stop": {
+          "type": "array",
+          "default": [],
+          "description": "Additional stop sequences merged with global stop sequences.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "default": {},
+      "description": "Arbitrary source/provenance metadata (e.g. source, created_at, updated_at) preserved across import/export round-trips.",
+      "additionalProperties": true
+    }
+  }
+}
