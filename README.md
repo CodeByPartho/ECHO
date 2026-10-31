@@ -6,6 +6,8 @@
 
   <p><b>A private, offline-capable chat application with custom persona management</b></p>
 
+  [![XERJ Corpus Hub Contributor](https://img.shields.io/badge/Featured%20Contributor-XERJ%20Corpus%20Hub-blue?style=for-the-badge)](https://hub.xerj.org/contributors/CodeByPartho)
+
   <p>
     A high-performance Android chat application built with Flutter that runs quantized on-device models with zero internet connection, supports custom endpoints, and features an unlimited custom persona engine.
   </p>
@@ -233,6 +235,8 @@ The APK binary will be produced at:
 This project is licensed under the **[MIT License](LICENSE)**.
 
 ECHO is based on and extends [cross-platform-llm-client](https://github.com/orailnoor/cross-platform-llm-client) by **orailnoor** and contributors, incorporating an unlimited persona engine, dynamic prompt composition, and customized UI.
+
+The UI and state-management architecture of ECHO was selected to be a part of the [XERJ Corpus Hub](https://hub.xerj.org/contributors/CodeByPartho), serving as a public reference for engineering standards.
 
 
 ---
