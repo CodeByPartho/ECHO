@@ -72,6 +72,83 @@ class _ChatDrawerState extends State<ChatDrawer> {
     _close();
   }
 
+  /// Long-press menu: rename, pin/unpin, delete.
+  void _showSessionMenu(BuildContext context, ChatSession s) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Rename'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showRenameDialog(context, s);
+              },
+            ),
+            ListTile(
+              leading: Icon(s.pinned
+                  ? Icons.push_pin_outlined
+                  : Icons.push_pin_rounded),
+              title: Text(s.pinned ? 'Unpin chat' : 'Pin chat'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _chat.togglePinChat(s.id);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded,
+                  color: Theme.of(context).colorScheme.error),
+              title: Text('Delete chat',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(context, s);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRenameDialog(BuildContext context, ChatSession s) async {
+    final textController = TextEditingController(text: s.title);
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename chat'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Chat name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, textController.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    if (saved != null) _chat.renameChat(s.id, saved);
+  }
+
   Future<void> _confirmDelete(BuildContext context, ChatSession s) async {
     Haptics.mediumImpact();
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -264,10 +341,34 @@ class _ChatDrawerState extends State<ChatDrawer> {
               );
             }
 
-            final groups = _group(all);
+            final pinned = all.where((s) => s.pinned).toList();
+            final groups = _group(all.where((s) => !s.pinned).toList());
             return ListView(
               padding: const EdgeInsets.fromLTRB(10, 4, 10, 16),
               children: [
+                if (pinned.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 14, 10, 6),
+                    child: Row(children: [
+                      Icon(Icons.push_pin_rounded, size: 13, color: muted),
+                      const SizedBox(width: 4),
+                      Text('Pinned',
+                          style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: muted)),
+                    ]),
+                  ),
+                  for (final s in pinned)
+                    _SessionRow(
+                      session: s,
+                      active: s.id == current,
+                      text: text,
+                      selected: selected,
+                      onTap: () => _open(s),
+                      onLongPress: () => _showSessionMenu(context, s),
+                    ),
+                ],
                 for (final g in groups) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 14, 10, 6),
@@ -284,7 +385,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       text: text,
                       selected: selected,
                       onTap: () => _open(s),
-                      onLongPress: () => _confirmDelete(context, s),
+                      onLongPress: () => _showSessionMenu(context, s),
                     ),
                 ],
               ],
@@ -293,7 +394,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
           // Footer hint
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Text('Long-press a chat to delete it',
+            child: Text('Long-press a chat to rename, pin, or delete it',
                 style: GoogleFonts.inter(
                     fontSize: 12, color: muted.withValues(alpha: 0.8))),
           ),
@@ -335,14 +436,25 @@ class _SessionRow extends StatelessWidget {
           highlightColor: selected,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-            child: Text(session.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                    fontSize: 15,
-                    letterSpacing: -0.15,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                    color: text)),
+            child: Row(children: [
+              Expanded(
+                child: Text(session.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                        fontSize: 15,
+                        letterSpacing: -0.15,
+                        fontWeight:
+                            active ? FontWeight.w600 : FontWeight.w400,
+                        color: text)),
+              ),
+              if (session.pinned)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Icon(Icons.push_pin_rounded,
+                      size: 13, color: text.withValues(alpha: 0.5)),
+                ),
+            ]),
           ),
         ),
       ),

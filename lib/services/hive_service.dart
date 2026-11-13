@@ -84,6 +84,21 @@ class HiveService extends GetxService {
     await _messagesBox.put(id, data);
   }
 
+  /// All stored messages, for backup/export. Callers filter by chatId.
+  List<Map<dynamic, dynamic>> getAllMessages() {
+    return _messagesBox.values
+        .map((v) => Map<dynamic, dynamic>.from(v))
+        .toList();
+  }
+
+  Future<void> deleteMessage(String id) async {
+    await _messagesBox.delete(id);
+  }
+
+  Future<void> deleteMessages(Iterable<String> ids) async {
+    await _messagesBox.deleteAll(ids.toList());
+  }
+
   // ─── Tasks ─────────────────────────────────────
 
   List<Map<dynamic, dynamic>> getAllTasks() {

@@ -9,6 +9,10 @@ class ChatSession {
   /// how every session created before personas existed behaves.
   final String? personaId;
 
+  /// Pinned chats sort to the top of the drawer. Defaults to false, so
+  /// sessions saved before pinning existed behave exactly as before.
+  final bool pinned;
+
   ChatSession({
     required this.id,
     String? title,
@@ -16,6 +20,7 @@ class ChatSession {
     DateTime? updatedAt,
     this.lastMessage,
     this.personaId,
+    this.pinned = false,
   })  : title = title ?? 'New Chat',
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -27,6 +32,7 @@ class ChatSession {
         'updatedAt': updatedAt.toIso8601String(),
         'lastMessage': lastMessage,
         if (personaId != null) 'personaId': personaId,
+        'pinned': pinned,
       };
 
   factory ChatSession.fromMap(Map<dynamic, dynamic> map) => ChatSession(
@@ -36,6 +42,7 @@ class ChatSession {
         updatedAt: DateTime.tryParse(map['updatedAt'] ?? '') ?? DateTime.now(),
         lastMessage: map['lastMessage'],
         personaId: _personaId(map['personaId']),
+        pinned: map['pinned'] == true,
       );
 
   static String? _personaId(dynamic value) {
@@ -49,6 +56,7 @@ class ChatSession {
     DateTime? updatedAt,
     String? lastMessage,
     String? personaId,
+    bool? pinned,
     bool clearPersona = false,
     bool clearPersonaId = false,
   }) =>
@@ -58,6 +66,9 @@ class ChatSession {
         createdAt: createdAt,
         updatedAt: updatedAt ?? DateTime.now(),
         lastMessage: lastMessage ?? this.lastMessage,
-        personaId: (clearPersona || clearPersonaId) ? null : (personaId ?? this.personaId),
+        personaId: (clearPersona || clearPersonaId)
+            ? null
+            : (personaId ?? this.personaId),
+        pinned: pinned ?? this.pinned,
       );
 }

@@ -29,7 +29,6 @@ class ChatMessage {
   }
 
   ChatMessage({
-
     required this.id,
     required this.chatId,
     required this.role,
@@ -48,6 +47,54 @@ class ChatMessage {
     this.imageGenDurationMs,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
+
+  /// The text the user typed, without any attached-file block. The stored
+  /// [content] appends "\n\nAttached file: ..." after the visible text,
+  /// so editing works on this part only and the attachment survives.
+  String get visibleText {
+    const marker = '\n\nAttached file:';
+    final idx = content.indexOf(marker);
+    return idx < 0 ? content : content.substring(0, idx);
+  }
+
+  /// Returns a copy with only the visible (typed) text replaced. Any
+  /// attached-file block in [content] is kept verbatim.
+  ChatMessage withVisibleText(String text) {
+    const marker = '\n\nAttached file:';
+    final idx = content.indexOf(marker);
+    final next = idx < 0 ? text : text + content.substring(idx);
+    return copyWith(content: next);
+  }
+
+  ChatMessage copyWith({
+    String? content,
+    String? imageBase64,
+    String? imagePath,
+    String? fileName,
+    String? fileContent,
+    String? filePath,
+    String? fileType,
+    int? fileSize,
+  }) =>
+      ChatMessage(
+        id: id,
+        chatId: chatId,
+        role: role,
+        content: content ?? this.content,
+        imageBase64: imageBase64 ?? this.imageBase64,
+        imagePath: imagePath ?? this.imagePath,
+        fileName: fileName ?? this.fileName,
+        fileContent: fileContent ?? this.fileContent,
+        filePath: filePath ?? this.filePath,
+        fileType: fileType ?? this.fileType,
+        fileSize: fileSize ?? this.fileSize,
+        cmdOutput: cmdOutput,
+        isCommand: isCommand,
+        tokensPerSec: tokensPerSec,
+        thoughtDurationSeconds: thoughtDurationSeconds,
+        imageGenDurationMs: imageGenDurationMs,
+        timestamp: timestamp,
+      );
 
   Map<String, dynamic> toMap() => {
         'id': id,

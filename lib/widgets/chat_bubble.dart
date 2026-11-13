@@ -12,7 +12,32 @@ import '../core/haptics.dart';
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
 
-  const ChatBubble({super.key, required this.message});
+  /// True when this is the last assistant message in the chat. Only then
+  /// do the regenerate and read-aloud actions make sense.
+  final bool isLastAssistant;
+
+  /// True while this message is being read aloud.
+  final bool isSpeaking;
+
+  /// True while this message is the current search hit.
+  final bool highlighted;
+
+  final VoidCallback? onRegenerate;
+  final VoidCallback? onToggleSpeech;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const ChatBubble({
+    super.key,
+    required this.message,
+    this.isLastAssistant = false,
+    this.isSpeaking = false,
+    this.highlighted = false,
+    this.onRegenerate,
+    this.onToggleSpeech,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,17 +53,32 @@ class ChatBubble extends StatelessWidget {
         ? message.content
         : message.content.split('\n\nAttached file:').first;
 
-    if (isUser) return _buildUser(context, isDark, visibleContent);
+    final Widget body;
+    if (isUser) {
+      body = _buildUser(context, isDark, visibleContent);
+    } else {
+      final thoughtParts =
+          splitThoughtTags(_cleanAssistantText(visibleContent));
+      final answerContent = thoughtParts.answer.trim();
+      body = _buildAssistant(context, isDark, thoughtParts, answerContent);
+    }
 
-    final thoughtParts = splitThoughtTags(_cleanAssistantText(visibleContent));
-    final answerContent = thoughtParts.answer.trim();
-    return _buildAssistant(context, isDark, thoughtParts, answerContent);
+    if (!highlighted) return body;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: body,
+    );
   }
 
   // ── User: compact neutral bubble on the right ──
+  // Long-press opens Edit / Copy / Delete. Editing re-sends the message
+  // and regenerates everything after it.
   Widget _buildUser(BuildContext context, bool isDark, String text) {
     final maxW = MediaQuery.of(context).size.width * 0.8;
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.fromLTRB(48, 14, 16, 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
         if (message.decodedImageBytes != null)
@@ -102,6 +142,56 @@ class ChatBubble extends StatelessWidget {
           ),
       ]),
     );
+    return GestureDetector(
+      onLongPress: () => _showUserMenu(context),
+      child: content,
+    );
+  }
+
+  void _showUserMenu(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit and resend'),
+              onTap: () {
+                Navigator.pop(ctx);
+                onEdit?.call();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_copy_rounded),
+              title: const Text('Copy text'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: message.visibleText));
+                Haptics.lightImpact();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded,
+                  color: Theme.of(context).colorScheme.error),
+              title: Text('Delete message',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                onDelete?.call();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Assistant: full-width text, no bubble, quiet actions underneath ──
@@ -147,6 +237,24 @@ class ChatBubble extends StatelessWidget {
             child: Row(children: [
               if (answerContent.isNotEmpty)
                 _CopyButton(text: answerContent, color: muted),
+              if (answerContent.isNotEmpty && isLastAssistant) ...[
+                _ActionIcon(
+                  icon: Icons.refresh_rounded,
+                  tooltip: 'Regenerate response',
+                  color: muted,
+                  onTap: onRegenerate,
+                ),
+                _ActionIcon(
+                  icon: isSpeaking
+                      ? Icons.stop_rounded
+                      : Icons.volume_up_rounded,
+                  tooltip: isSpeaking ? 'Stop reading' : 'Read aloud',
+                  color: isSpeaking
+                      ? Theme.of(context).colorScheme.primary
+                      : muted,
+                  onTap: onToggleSpeech,
+                ),
+              ],
               if (meta.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Text(meta.join(' · '),
@@ -334,6 +442,40 @@ class ChatBubble extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionIcon extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _ActionIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: () {
+          if (onTap != null) {
+            Haptics.lightImpact();
+            onTap!();
+          }
+        },
+        radius: 18,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 16, color: color),
         ),
       ),
     );

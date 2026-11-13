@@ -148,6 +148,15 @@ Here is the chat history:
 - **Dynamic Prompt Composer** — Automatically formats message context to match ChatML, Llama-3, Gemma, and Phi templating conventions.
 - **In-App Model Hub** — One-tap downloads for popular SLMs (Qwen 2.5, SmolLM2, Gemma) or import your own `.gguf` files from device storage.
 - **Fine-Tuned Sampling Parameters** — Per-persona and global controls for temperature, top-p, max tokens, and custom stop sequences.
+- **Regenerate, Edit, Delete** — Regenerate the last answer, edit any of your messages and resend it, or delete a single message. Editing re-generates everything after it.
+- **Read Aloud** — Listen to any answer with the on-device text-to-speech engine. Thought blocks, code, and links are stripped before speaking.
+- **In-Chat Search** — Find any word inside the open chat and jump between matches.
+- **Rename and Pin Chats** — Give a chat your own name and pin the ones you return to. Pinned chats stay at the top of the sidebar.
+- **Export and Backup** — Share a single chat as Markdown, or back up every chat and persona to one JSON file and restore it later. Your data stays yours.
+
+## What is new in 1.1
+
+Version 1.1.0 adds the everyday chat controls ECHO was missing: regenerate, edit and resend, single message delete, read aloud, in-chat search, chat rename and pinning, Markdown chat export, and a full JSON backup and restore. Nothing about the offline promise changed: every one of these features works entirely on the device.
 
 ---
 

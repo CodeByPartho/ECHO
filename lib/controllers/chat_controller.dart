@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:uuid/uuid.dart';
 import 'package:gal/gal.dart';
@@ -25,8 +26,10 @@ import '../services/inference_service.dart';
 import '../services/cloud_service.dart';
 import '../services/local_image_service.dart';
 import '../services/app_log_service.dart';
+import '../services/backup_service.dart';
 import '../services/image_generation_notification_service.dart';
 import '../services/document_extractor_service.dart';
+import '../services/tts_service.dart';
 import '../utils/thought_parser.dart';
 
 const int _visionImageMaxSide = 768;
@@ -94,6 +97,26 @@ class ChatController extends GetxController {
   final sttAvailable = false.obs;
   final _speech = stt.SpeechToText();
 
+  // Read aloud (text-to-speech, on-device Android TTS, nothing leaves the
+  // phone). Holds the id of the message currently being spoken, if any.
+  final _tts = TtsService();
+  final speakingMessageId = Rxn<String>();
+
+  // In-chat search: matches are message ids in display order.
+  final searchActive = false.obs;
+  final searchQuery = ''.obs;
+  final searchMatchIds = <String>[].obs;
+  final searchMatchIndex = 0.obs;
+  final highlightedMessageId = Rxn<String>();
+
+  /// Per-message keys so search can scroll to a match. Owned here because
+  /// the view is rebuilt often and the keys must survive rebuilds.
+  final messageKeys = <String, GlobalKey>{};
+
+  /// Last message id the search bar scrolled to, so a rebuild does not
+  /// re-scroll to the same match.
+  String? lastScrolledHighlightId;
+
   final textController = TextEditingController();
   final inputFocus = FocusNode();
   final scrollController = ScrollController();
@@ -114,6 +137,7 @@ class ChatController extends GetxController {
         false;
     loadSessions();
     _initSpeech();
+    _tts.onDone = () => speakingMessageId.value = null;
   }
 
   Future<void> _initSpeech() async {
@@ -152,9 +176,11 @@ class ChatController extends GetxController {
           textController.text = result.recognizedWords;
           inputText.value = result.recognizedWords;
         },
-        listenFor: const Duration(seconds: 60),
-        pauseFor: const Duration(seconds: 4),
-        localeId: 'en_US',
+        listenOptions: stt.SpeechListenOptions(
+          listenFor: const Duration(seconds: 60),
+          pauseFor: const Duration(seconds: 4),
+          localeId: 'en_US',
+        ),
       );
       isListening.value = true;
     } catch (_) {
@@ -165,6 +191,7 @@ class ChatController extends GetxController {
   @override
   void onClose() {
     _scrollTimer?.cancel();
+    unawaited(_tts.stop());
     if (_scrollListenerAttached) {
       scrollController.removeListener(_handleUserScroll);
     }
@@ -183,8 +210,17 @@ class ChatController extends GetxController {
 
   void loadSessions() {
     final raw = _hive.getAllSessions();
-    sessions.value = raw.map((m) => ChatSession.fromMap(m)).toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    sessions.value = raw.map((m) => ChatSession.fromMap(m)).toList();
+    _sortSessions();
+  }
+
+  /// Pinned chats first, then most recently updated. Keeps the drawer
+  /// stable: a chat only moves when it is pinned or a new message lands.
+  void _sortSessions() {
+    sessions.sort((a, b) {
+      if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
   }
 
   PersonaService? get _personaService =>
@@ -210,8 +246,7 @@ class ChatController extends GetxController {
 
   void createNewChat({String? personaId}) {
     final id = _uuid.v4();
-    final defaultPersonaId =
-        personaId ?? _personaService?.activePersona?.id;
+    final defaultPersonaId = personaId ?? _personaService?.activePersona?.id;
     final session = ChatSession(
       id: id,
       title: 'New Chat',
@@ -219,6 +254,7 @@ class ChatController extends GetxController {
     );
     _hive.saveSession(id, session.toMap());
     sessions.insert(0, session);
+    _sortSessions();
     openChat(id);
   }
 
@@ -650,7 +686,8 @@ class ChatController extends GetxController {
       }
     }
 
-    final activePersona = currentPersona;
+    // The persona bound to this chat is read inside _generateAssistantReply
+    // via currentPersona, so it always matches the session at send time.
 
     // Mark busy before the first await (reading an attached image), so a
     // double tap can't pass the guard above twice and send duplicates.
@@ -704,6 +741,27 @@ class ChatController extends GetxController {
       if (idx >= 0) sessions[idx] = updated;
     }
 
+    await _generateAssistantReply(
+      promptText: text,
+      effectiveText: effectiveText,
+      imagePath: imagePath,
+      fileType: fileType,
+      filePath: filePath,
+      imgBase64: imgBase64,
+    );
+  }
+
+  /// Generates the next assistant reply for the messages already in
+  /// [messages]. Used both when a new message is sent and when the last
+  /// reply is regenerated, so both paths behave identically.
+  Future<void> _generateAssistantReply({
+    required String promptText,
+    required String effectiveText,
+    String? imagePath,
+    String? fileType,
+    String? filePath,
+    String? imgBase64,
+  }) async {
     // Start generating
     final generationId = ++_generationSerial;
     isLoading.value = true;
@@ -782,9 +840,9 @@ class ChatController extends GetxController {
             steps: steps,
             sizeLabel: sizeLabel,
           );
-          print('[ChatController] Starting image generation for: $text');
+          print('[ChatController] Starting image generation for: $promptText');
           final pngBytes = await localImage.generateImage(
-            prompt: text,
+            prompt: promptText,
             onProgress: (step, total) {
               if (generationId != _generationSerial) return;
               print(
@@ -851,7 +909,7 @@ class ChatController extends GetxController {
           rawResponse = await inference.generate(
             prompt: effectiveText,
             systemPrompt: _effectiveSystemPrompt,
-            persona: activePersona,
+            persona: currentPersona,
             conversationHistory: history,
             source: 'chat',
             imagePath: imagePath,
@@ -875,7 +933,7 @@ class ChatController extends GetxController {
         ];
         rawResponse = await cloud.sendMessage(
           messages: apiMessages,
-          persona: activePersona,
+          persona: currentPersona,
           imageBase64: imgBase64, // already encoded before clearImage()
           onToken: (token) {
             if (generationId != _generationSerial) return;
@@ -968,7 +1026,300 @@ class ChatController extends GetxController {
     }
   }
 
+  // ─── Message actions: regenerate / edit / delete ───
+
+  /// Drops the last assistant reply and generates a fresh one for the same
+  /// user message. Nothing else in the chat changes.
+  Future<void> regenerateLastResponse() async {
+    if (isLoading.value || isStreaming.value) return;
+    if (currentSessionId.value.isEmpty) return;
+    final lastAssistantIdx =
+        messages.lastIndexWhere((m) => m.role == 'assistant');
+    if (lastAssistantIdx < 0) return;
+    final lastUserIdx =
+        messages.lastIndexWhere((m) => m.role == 'user', lastAssistantIdx);
+    if (lastUserIdx < 0) return;
+    final userMsg = messages[lastUserIdx];
+    final toRemove = messages.sublist(lastAssistantIdx);
+    for (final m in toRemove) {
+      await _hive.deleteMessage(m.id);
+    }
+    messages.removeRange(lastAssistantIdx, messages.length);
+    await _generateAssistantReply(
+      promptText: userMsg.visibleText,
+      effectiveText: userMsg.content,
+      imagePath: userMsg.imagePath,
+      fileType: userMsg.fileType,
+      filePath: userMsg.filePath,
+      imgBase64: userMsg.imageBase64,
+    );
+  }
+
+  /// Replaces a user message's text and regenerates everything after it.
+  /// Replies written to the old text are deleted first, so the history the
+  /// model sees always matches what is on screen. Attachments on the
+  /// message survive the edit.
+  Future<void> editUserMessage(ChatMessage message, String newText) async {
+    if (isLoading.value || isStreaming.value) return;
+    final text = newText.trim();
+    if (text.isEmpty) return;
+    final idx = messages.indexWhere((m) => m.id == message.id);
+    if (idx < 0 || message.role != 'user') return;
+    final after = messages.sublist(idx + 1);
+    for (final m in after) {
+      await _hive.deleteMessage(m.id);
+    }
+    if (after.isNotEmpty) messages.removeRange(idx + 1, messages.length);
+    final updated = message.withVisibleText(text);
+    messages[idx] = updated;
+    await _hive.saveMessage(updated.id, updated.toMap());
+    if (messages.where((m) => m.role == 'user').length == 1) {
+      final session = currentSession;
+      if (session != null) {
+        final title =
+            text.length > 40 ? '${text.substring(0, 40)}...' : text;
+        final renamed = session.copyWith(title: title, lastMessage: text);
+        await _hive.saveSession(renamed.id, renamed.toMap());
+        final sIdx = sessions.indexWhere((s) => s.id == renamed.id);
+        if (sIdx >= 0) sessions[sIdx] = renamed;
+      }
+    }
+    await _generateAssistantReply(
+      promptText: text,
+      effectiveText: updated.content,
+      imagePath: updated.imagePath,
+      fileType: updated.fileType,
+      filePath: updated.filePath,
+      imgBase64: updated.imageBase64,
+    );
+  }
+
+  /// Deletes one message only. Replies after it are left alone; the user
+  /// chose to remove that message, not the conversation.
+  Future<void> deleteMessage(ChatMessage message) async {
+    if (speakingMessageId.value == message.id) {
+      await _tts.stop();
+      speakingMessageId.value = null;
+    }
+    messages.removeWhere((m) => m.id == message.id);
+    await _hive.deleteMessage(message.id);
+    searchMatchIds.remove(message.id);
+    if (highlightedMessageId.value == message.id) {
+      highlightedMessageId.value =
+          searchMatchIds.isEmpty ? null : searchMatchIds.first;
+    }
+  }
+
+  // ─── Chat management: rename / pin ─────────────────
+
+  Future<void> renameChat(String sessionId, String newTitle) async {
+    final title = newTitle.trim();
+    if (title.isEmpty) return;
+    final idx = sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final updated = sessions[idx].copyWith(title: title);
+    await _hive.saveSession(updated.id, updated.toMap());
+    sessions[idx] = updated;
+  }
+
+  Future<void> togglePinChat(String sessionId) async {
+    final idx = sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final updated = sessions[idx].copyWith(pinned: !sessions[idx].pinned);
+    await _hive.saveSession(updated.id, updated.toMap());
+    sessions[idx] = updated;
+    _sortSessions();
+  }
+
+  // ─── In-chat search ───────────────────────────────
+
+  void startSearch() {
+    searchActive.value = true;
+    searchQuery.value = '';
+    searchMatchIds.clear();
+    searchMatchIndex.value = 0;
+    highlightedMessageId.value = null;
+  }
+
+  void updateSearch(String query) {
+    searchQuery.value = query;
+    lastScrolledHighlightId = null;
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      searchMatchIds.clear();
+      highlightedMessageId.value = null;
+      return;
+    }
+    searchMatchIds.value = messages
+        .where((m) => m.content.toLowerCase().contains(q))
+        .map((m) => m.id)
+        .toList();
+    searchMatchIndex.value = 0;
+    highlightedMessageId.value =
+        searchMatchIds.isEmpty ? null : searchMatchIds.first;
+  }
+
+  void nextSearchMatch() {
+    if (searchMatchIds.isEmpty) return;
+    searchMatchIndex.value =
+        (searchMatchIndex.value + 1) % searchMatchIds.length;
+    highlightedMessageId.value = searchMatchIds[searchMatchIndex.value];
+  }
+
+  void prevSearchMatch() {
+    if (searchMatchIds.isEmpty) return;
+    searchMatchIndex.value =
+        (searchMatchIndex.value - 1 + searchMatchIds.length) %
+            searchMatchIds.length;
+    highlightedMessageId.value = searchMatchIds[searchMatchIndex.value];
+  }
+
+  void clearSearch() {
+    searchActive.value = false;
+    searchQuery.value = '';
+    searchMatchIds.clear();
+    searchMatchIndex.value = 0;
+    highlightedMessageId.value = null;
+    lastScrolledHighlightId = null;
+  }
+
+  // ─── Read aloud ───────────────────────────────────
+
+  /// Reads an assistant answer aloud with the on-device TTS engine. Tapping
+  /// again stops it. Starting a new generation also stops it.
+  Future<void> toggleReadAloud(ChatMessage message) async {
+    if (speakingMessageId.value == message.id) {
+      await _tts.stop();
+      speakingMessageId.value = null;
+      return;
+    }
+    await _tts.stop();
+    speakingMessageId.value = message.id;
+    final ok = await _tts.speak(message.content);
+    if (!ok) {
+      speakingMessageId.value = null;
+      showToast('Nothing to read', 'This message has no speakable text.',
+          tone: ToastTone.warning);
+    }
+  }
+
+  // ─── Export and backup ────────────────────────────
+
+  /// Shares the open chat as a Markdown file through the system share sheet.
+  Future<void> exportCurrentChat() async {
+    final session = currentSession;
+    if (session == null || messages.isEmpty) return;
+    try {
+      final md = BackupService.buildChatMarkdown(
+        title: session.title,
+        messages: messages.toList(),
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/${BackupService.chatExportFileName(session.title)}');
+      await file.writeAsString(md);
+      await Share.shareXFiles([XFile(file.path)],
+          subject: session.title, text: session.title);
+    } catch (e) {
+      Get.find<AppLogService>().warning('Chat export failed', details: e);
+      showToast('Export failed', '$e', tone: ToastTone.error);
+    }
+  }
+
+  /// Shares a JSON backup of every chat, message and persona. The file is
+  /// plain JSON the user owns; nothing is uploaded anywhere by this step.
+  Future<void> exportBackup() async {
+    try {
+      final personas = Get.isRegistered<PersonaService>()
+          ? Get.find<PersonaService>()
+              .personas
+              .map((p) => p.toMap())
+              .toList()
+          : <Map<String, dynamic>>[];
+      final json = BackupService.buildBackupJson(
+        sessions: _hive.getAllSessions(),
+        messages: _hive.getAllMessages(),
+        personas: personas,
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/${BackupService.backupFileName()}');
+      await file.writeAsString(json);
+      await Share.shareXFiles([XFile(file.path)],
+          subject: 'ECHO backup', text: 'ECHO chat backup');
+    } catch (e) {
+      Get.find<AppLogService>().warning('Backup export failed', details: e);
+      showToast('Backup failed', '$e', tone: ToastTone.error);
+    }
+  }
+
+  /// Restores a backup file. Records that already exist (same id) are left
+  /// alone, so importing twice never duplicates a chat. Personas keep their
+  /// original ids, so chats bound to them keep working.
+  Future<void> importBackup() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.single;
+      final bytes = file.bytes ??
+          (file.path != null ? await File(file.path!).readAsBytes() : null);
+      if (bytes == null) return;
+      final data = BackupService.parseBackup(utf8.decode(bytes));
+      var addedSessions = 0;
+      var addedMessages = 0;
+      var addedPersonas = 0;
+      final existingSessions =
+          _hive.getAllSessions().map((m) => m['id']).toSet();
+      for (final s in data.sessions) {
+        if (s['id'] == null || existingSessions.contains(s['id'])) continue;
+        await _hive.saveSession(s['id'] as String, s);
+        addedSessions++;
+      }
+      final existingMessages =
+          _hive.getAllMessages().map((m) => m['id']).toSet();
+      for (final m in data.messages) {
+        if (m['id'] == null || existingMessages.contains(m['id'])) continue;
+        await _hive.saveMessage(m['id'] as String, m);
+        addedMessages++;
+      }
+      if (data.personas.isNotEmpty && Get.isRegistered<PersonaService>()) {
+        final ps = Get.find<PersonaService>();
+        final existingIds = ps.personas.map((p) => p.id).toSet();
+        for (final p in data.personas) {
+          if (p['persona_id'] == null ||
+              existingIds.contains(p['persona_id'])) {
+            continue;
+          }
+          await ps.save(Persona.fromMap(p));
+          addedPersonas++;
+        }
+      }
+      loadSessions();
+      if (currentSessionId.value.isNotEmpty) {
+        openChat(currentSessionId.value);
+      }
+      showToast(
+        'Backup restored',
+        '$addedSessions chats, $addedMessages messages'
+        '${addedPersonas > 0 ? ', $addedPersonas personas' : ''} added.',
+        tone: ToastTone.success,
+      );
+    } on FormatException catch (e) {
+      showToast('Not a backup file', e.message, tone: ToastTone.error);
+    } catch (e) {
+      Get.find<AppLogService>().warning('Backup import failed', details: e);
+      showToast('Restore failed', '$e', tone: ToastTone.error);
+    }
+  }
+
   void stopGenerating() {
+    if (speakingMessageId.value != null) {
+      unawaited(_tts.stop());
+      speakingMessageId.value = null;
+    }
     if (!isLoading.value && !isStreaming.value) return;
     final partialResponse = streamingResponse.value.trim();
     if (partialResponse.isNotEmpty) {

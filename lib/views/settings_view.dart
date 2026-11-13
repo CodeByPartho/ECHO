@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../controllers/chat_controller.dart';
 import '../controllers/settings_controller.dart';
 import '../core/constants.dart';
 import '../core/ui.dart';
@@ -112,6 +113,25 @@ class SettingsView extends GetView<SettingsController> {
                     ? 'CPU'
                     : 'GPU',
                 builder: (ctx) => _buildImageGenerationGroup(ctx),
+              ),
+            ]),
+            const SectionHeader('Data'),
+            AppGroup(dividerIndent: 60, children: [
+              AppRow(
+                icon: Icons.backup_outlined,
+                title: 'Back up chats',
+                subtitle: 'Save all chats and personas to a file',
+                chevron: true,
+                onTap: () =>
+                    Get.find<ChatController>().exportBackup(),
+              ),
+              AppRow(
+                icon: Icons.restore_outlined,
+                title: 'Restore backup',
+                subtitle: 'Import chats from a backup file',
+                chevron: true,
+                onTap: () =>
+                    Get.find<ChatController>().importBackup(),
               ),
             ]),
             const SectionHeader('About'),

@@ -10,6 +10,7 @@ import '../controllers/chat_controller.dart';
 import '../controllers/settings_controller.dart';
 import '../controllers/model_controller.dart';
 import '../controllers/home_controller.dart';
+import '../models/chat_message.dart';
 import '../services/inference_service.dart';
 import '../services/local_image_service.dart';
 import '../services/persona_service.dart';
@@ -49,6 +50,9 @@ class ChatView extends GetView<ChatController> {
       body: Column(
         children: [
           _modelLoadingBar(context, isDark),
+          Obx(() => controller.searchActive.value
+              ? _searchBar(context, isDark)
+              : const SizedBox.shrink()),
           Expanded(child: Obx(() {
             if (controller.currentSessionId.value.isEmpty ||
                 controller.messages.isEmpty) {
@@ -57,6 +61,8 @@ class ChatView extends GetView<ChatController> {
             final streaming = controller.isStreaming.value;
             final text = controller.streamingResponse.value;
             final n = controller.messages.length;
+            final lastAssistantIdx = controller.messages
+                .lastIndexWhere((m) => m.role == 'assistant');
             return NotificationListener<ScrollUpdateNotification>(
               onNotification: (note) {
                 if (note.dragDetails != null && streaming) {
@@ -76,7 +82,38 @@ class ChatView extends GetView<ChatController> {
                   if (i == n && streaming) {
                     return _streamBubble(context, text, isDark);
                   }
-                  return ChatBubble(message: controller.messages[i]);
+                  final msg = controller.messages[i];
+                  final key = controller.messageKeys
+                      .putIfAbsent(msg.id, () => GlobalKey());
+                  if (controller.highlightedMessageId.value == msg.id &&
+                      controller.lastScrolledHighlightId != msg.id) {
+                    controller.lastScrolledHighlightId = msg.id;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final ctx = key.currentContext;
+                      if (ctx != null) {
+                        Scrollable.ensureVisible(ctx,
+                            duration: const Duration(milliseconds: 300),
+                            alignment: 0.2);
+                      }
+                    });
+                  }
+                  return Container(
+                    key: key,
+                    child: ChatBubble(
+                      message: msg,
+                      isLastAssistant:
+                          msg.role == 'assistant' && i == lastAssistantIdx,
+                      isSpeaking:
+                          controller.speakingMessageId.value == msg.id,
+                      highlighted:
+                          controller.highlightedMessageId.value == msg.id,
+                      onRegenerate: controller.regenerateLastResponse,
+                      onToggleSpeech: () =>
+                          controller.toggleReadAloud(msg),
+                      onEdit: () => _showEditDialog(context, msg),
+                      onDelete: () => controller.deleteMessage(msg),
+                    ),
+                  );
                 },
               ),
             );
@@ -221,9 +258,171 @@ class ChatView extends GetView<ChatController> {
                 controller.createNewChat();
               });
         }),
+        Obx(() {
+          if (controller.messages.isEmpty) return const SizedBox.shrink();
+          return PopupMenuButton<String>(
+            tooltip: 'Chat options',
+            icon: Icon(Icons.more_horiz_rounded,
+                size: 20, color: isDark ? Colors.white : Colors.black),
+            onSelected: (value) {
+              switch (value) {
+                case 'export':
+                  controller.exportCurrentChat();
+                case 'rename':
+                  _showRenameDialog(context);
+                case 'search':
+                  controller.startSearch();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'export',
+                child: Text('Export chat'),
+              ),
+              PopupMenuItem(
+                value: 'rename',
+                child: Text('Rename chat'),
+              ),
+              PopupMenuItem(
+                value: 'search',
+                child: Text('Search in chat'),
+              ),
+            ],
+          );
+        }),
         const SizedBox(width: 4),
       ],
     );
+  }
+
+  // ── In-chat search bar ──
+  Widget _searchBar(BuildContext context, bool isDark) {
+    final muted = Theme.of(context).hintColor;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: _sep(context)),
+        ),
+      ),
+      child: Row(children: [
+        Icon(Icons.search_rounded, size: 18, color: muted),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            autofocus: true,
+            onChanged: controller.updateSearch,
+            style: GoogleFonts.inter(
+                fontSize: 15,
+                color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              hintText: 'Search in this chat',
+              hintStyle:
+                  GoogleFonts.inter(fontSize: 15, color: muted),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+        Obx(() {
+          final total = controller.searchMatchIds.length;
+          if (total == 0) {
+            return Text(
+              controller.searchQuery.value.trim().isEmpty ? '' : 'No matches',
+              style: GoogleFonts.inter(fontSize: 13, color: muted),
+            );
+          }
+          return Text(
+            '${controller.searchMatchIndex.value + 1} of $total',
+            style: GoogleFonts.inter(fontSize: 13, color: muted),
+          );
+        }),
+        IconButton(
+          tooltip: 'Previous match',
+          icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
+          onPressed: controller.prevSearchMatch,
+        ),
+        IconButton(
+          tooltip: 'Next match',
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+          onPressed: controller.nextSearchMatch,
+        ),
+        IconButton(
+          tooltip: 'Close search',
+          icon: const Icon(Icons.close_rounded, size: 20),
+          onPressed: controller.clearSearch,
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _showEditDialog(
+      BuildContext context, ChatMessage message) async {
+    final textController =
+        TextEditingController(text: message.visibleText);
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit message'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          maxLines: 6,
+          minLines: 1,
+          decoration: const InputDecoration(
+            hintText: 'Message',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, textController.text),
+            child: const Text('Save and resend'),
+          ),
+        ],
+      ),
+    );
+    if (saved != null && saved.trim().isNotEmpty) {
+      await controller.editUserMessage(message, saved);
+    }
+  }
+
+  Future<void> _showRenameDialog(BuildContext context) async {
+    final session = controller.currentSession;
+    if (session == null) return;
+    final textController = TextEditingController(text: session.title);
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename chat'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Chat name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, textController.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    if (saved != null) {
+      await controller.renameChat(session.id, saved);
+    }
   }
 
   /// Name and status colour of whatever will answer the next message.
